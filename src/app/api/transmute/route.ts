@@ -23,11 +23,17 @@ export async function POST(req: Request) {
 
     Input Vibration: "${vibrationText}"
 
+    CRITICAL LANGUAGE RULES:
+    1. Detect the language of the 'Input Vibration' above.
+    2. The "description" and "seedOfTruth" MUST be generated in the exact same language as the input.
+    3. The "aethericCode" MUST remain in Python (English variables/logic), but any inline comments (#) and print statement strings should be in the detected user's language.
+    4. The "imagePrompt" must remain in English, as AI image models understand English best.
+
     Output Format: Strict JSON ONLY with these exact keys:
     1. "description": A short, poetic description of the vibe.
     2. "aethericCode": A functional Python snippet (with prints for the console) reflecting the vibe.
     3. "seedOfTruth": A deep, short quote capturing the core essence.
-    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the vibe.
+    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the vibe in English.
     
     Do NOT include any markdown code blocks wrapping the JSON (no \`\`\`json). Just output the raw JSON object.
     `;
