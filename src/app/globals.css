@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --color-obsidian: #050505;
+  --color-gold: #FFD700;
+  --color-gold-glow: #FBC71A;
+  --color-nebula: #00BFFF;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --animate-golden-pulse: golden-pulse 4s ease-in-out infinite;
+  --animate-subtle-flow: subtle-flow 10s linear infinite;
+  --animate-flicker: aetheric-flicker 3s infinite ease-in-out alternate;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  @keyframes golden-pulse {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+  }
+
+  @keyframes aetheric-flicker {
+    0%, 100% { opacity: 0.85; text-shadow: 0 0 2px rgba(255,215,0,0.3); }
+    20% { opacity: 1; text-shadow: 0 0 10px rgba(255,215,0,0.8); }
+    40% { opacity: 0.7; text-shadow: 0 0 4px rgba(255,215,0,0.2); }
+    60% { opacity: 0.95; text-shadow: 0 0 6px rgba(255,215,0,0.5); }
+    80% { opacity: 0.8; text-shadow: 0 0 3px rgba(255,215,0,0.3); }
+  }
+
+  @keyframes subtle-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --obsidian: #050505;
+  --gold: #FFD700;
 }
+
+body {
+  background-color: var(--obsidian);
+  color: var(--gold);
+  overflow-x: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* To Golden Flow Background */
+.cyber-zen-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: radial-gradient(circle at center, rgba(255, 215, 0, 0.05) 0%, rgba(5,5,5,1) 70%);
+  filter: blur(50px);
+}
+
+/* Εφέ για τα "χρυσά σωματίδια" με CSS */
+.particles {
+  position: absolute;
+  background: linear-gradient(to bottom, transparent, var(--gold), transparent);
+  width: 1px;
+  height: 100px;
+  opacity: 0.1;
+  animation: fall 5s linear infinite;
+}
+
+@keyframes fall {
+  from { transform: translateY(-100vh); }
+  to { transform: translateY(100vh); }
+}
+
+/* Custom Scrollbar για Cyber-Zen αίσθηση */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--obsidian); }
+::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.2); border-radius: 10px; }
