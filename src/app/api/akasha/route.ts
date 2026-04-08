@@ -43,17 +43,27 @@ export async function GET() {
         console.error("Supabase GET Error", error);
         throw error;
       }
-      
-      const transformedData = (data || []).map((row: any) => ({
-        id: row.id,
-        timestamp: row.created_at,
-        vibrationText: row.vibrationtext,
-        description: row.description,
-        aethericCode: row.aethericcode,
-        seedOfTruth: row.seedoftruth,
-        imagePrompt: row.imageprompt,
-        executionOutput: row.executionoutput
-      }));
+      const crypto = require('crypto');
+      const transformedData = (data || []).map((row: any) => {
+        let imageUrl = null;
+        if (row.imageprompt && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          const promptHash = crypto.createHash('md5').update(row.imageprompt).digest('hex');
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL.endsWith('/') ? process.env.NEXT_PUBLIC_SUPABASE_URL.slice(0, -1) : process.env.NEXT_PUBLIC_SUPABASE_URL;
+          imageUrl = `${supabaseUrl}/storage/v1/object/public/akashic_visions/${promptHash}.jpg`;
+        }
+
+        return {
+          id: row.id,
+          timestamp: row.created_at,
+          vibrationText: row.vibrationtext,
+          description: row.description,
+          aethericCode: row.aethericcode,
+          seedOfTruth: row.seedoftruth,
+          imagePrompt: row.imageprompt,
+          imageUrl: imageUrl,
+          executionOutput: row.executionoutput
+        };
+      });
 
       return NextResponse.json(transformedData);
     }
@@ -94,6 +104,36 @@ export async function POST(req: Request) {
        if (error) {
           console.error("Supabase POST Error", error);
           throw error;
+       }
+
+       // Upload image to Supabase Storage if imagePrompt exists
+       if (record.imagePrompt) {
+         try {
+           const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(record.imagePrompt)}?width=800&height=400&nologo=true`;
+           const imgRes = await fetch(pollinationsUrl, { headers: { 'User-Agent': 'Cyber-Zen-Bot/1.0' }});
+           if (imgRes.ok) {
+             const buffer = await imgRes.arrayBuffer();
+             
+             // Create a safe, deterministic filename based on a hash of the prompt
+             // We use a simple hash instead of a new db column
+             const crypto = require('crypto');
+             const promptHash = crypto.createHash('md5').update(record.imagePrompt).digest('hex');
+             const fileName = `${promptHash}.jpg`;
+
+             const { error: uploadError } = await supabase.storage
+               .from('akashic_visions')
+               .upload(fileName, buffer, {
+                 contentType: 'image/jpeg',
+                 upsert: true
+               });
+               
+             if (uploadError) {
+               console.error("Supabase Storage Upload Error", uploadError);
+             }
+           }
+         } catch (e) {
+           console.error("Failed to backup vision to Supabase Storage", e);
+         }
        }
 
        return NextResponse.json({ message: 'Record written to Supabase successfully.', record: data });

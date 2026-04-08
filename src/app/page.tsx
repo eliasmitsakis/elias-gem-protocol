@@ -10,6 +10,61 @@ declare global {
   }
 }
 
+const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { prompt: string; imageUrl?: string; width: number; height: number; className?: string }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setHasError(false);
+    setUseFallback(false);
+  }, [prompt, imageUrl]);
+
+  const currentSrc = useFallback || !imageUrl 
+    ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
+    : imageUrl;
+
+  return (
+    <div className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
+      {!loaded && !hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
+          <p className="text-nebula text-xs animate-pulse opacity-90 font-mono italic mb-2">
+            [+] Manifesting Vision...
+          </p>
+          <p className="text-nebula/60 text-[10px] break-words line-clamp-2 w-full max-w-[90%]">
+            "{prompt}"
+          </p>
+        </div>
+      )}
+      {hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0 border border-red-900/30 bg-red-900/10">
+          <p className="text-red-500/80 text-xs font-mono italic mb-2">
+            [!] Vision collapsed in the void.
+          </p>
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {!hasError && (
+        <img 
+          src={currentSrc} 
+          alt="Aetheric Vision" 
+          className={`w-full h-full object-cover transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            if (!useFallback && imageUrl) {
+              setUseFallback(true);
+            } else {
+              setHasError(true);
+              setLoaded(true);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 export default function CyberZenPortal() {
   const [particles, setParticles] = useState<number[]>([]);
   const [vibrationText, setVibrationText] = useState('');
@@ -19,6 +74,7 @@ export default function CyberZenPortal() {
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
   const [seedOfTruth, setSeedOfTruth] = useState('');
   const [imagePrompt, setImagePrompt] = useState('');
+  const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [description, setDescription] = useState('');
 
   // Execution states
@@ -173,6 +229,7 @@ sys.stderr = io.StringIO()
     setAethericCode(record.aethericCode);
     setSeedOfTruth(record.seedOfTruth);
     setImagePrompt(record.imagePrompt || '');
+    setCurrentImageUrl(record.imageUrl || '');
     setDescription(''); 
     
     setShowExecution(false);
@@ -193,6 +250,7 @@ sys.stderr = io.StringIO()
     setShowExecution(false);
     setSeedOfTruth('');
     setImagePrompt('');
+    setCurrentImageUrl('');
     setDescription('');
 
     const currentVibText = vibrationText;
@@ -282,9 +340,15 @@ sys.stderr = io.StringIO()
                         </div>
                       )}
                       
-                      <div className="bg-black/50 border border-gold/10 p-3 rounded text-xs italic opacity-90 break-words">
+                      <div className="bg-black/50 border border-gold/10 p-3 rounded text-xs italic opacity-90 break-words mb-3">
                         👁️ "{record.seedOfTruth}"
                       </div>
+                      
+                      {record.imagePrompt && (
+                        <div className="w-full aspect-video rounded border border-gold/20 overflow-hidden mt-2">
+                          <AethericImage prompt={record.imagePrompt} imageUrl={record.imageUrl} width={800} height={400} />
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -389,9 +453,13 @@ sys.stderr = io.StringIO()
               </div>
             )}
             {imagePrompt && (
-              <div className="flex-1 bg-black/40 border border-gold/20 p-4 rounded-xl">
+              <div className="flex-1 bg-black/40 border border-gold/20 p-4 rounded-xl flex flex-col">
                 <h3 className="mb-2 text-gold-glow italic">🖼️ Vision Prompt</h3>
-                <p className="text-xs opacity-70 p-2 bg-obsidian rounded font-sans text-white/80">{imagePrompt}</p>
+                <p className="text-xs opacity-70 p-2 bg-obsidian rounded font-sans text-white/80 mb-4">{imagePrompt}</p>
+                <div className="w-full min-h-[12rem] h-full bg-obsidian/50 rounded border border-gold/10 overflow-hidden relative mt-auto group">
+                  <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={400} />
+                  <div className="absolute inset-0 border border-gold/20 pointer-events-none rounded z-20"></div>
+                </div>
               </div>
             )}
           </div>
