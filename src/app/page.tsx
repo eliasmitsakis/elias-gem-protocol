@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
+import { toPng } from 'html-to-image';
 
 declare global {
   interface Window {
@@ -96,6 +97,23 @@ export default function CyberZenPortal() {
   
   // Scroll Ref for Auto-Scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Artifact Ref
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const exportArtifact = async () => {
+    if (cardRef.current) {
+      try {
+        const dataUrl = await toPng(cardRef.current, { quality: 1, backgroundColor: '#050505' });
+        const link = document.createElement('a');
+        link.download = `artifact-${Date.now()}.png`;
+        link.href = dataUrl;
+        link.click();
+      } catch (err) {
+        console.error('Failed to export artifact', err);
+      }
+    }
+  };
 
   const initPyodide = async () => {
     if (window.pyodideInstance) {
@@ -372,12 +390,12 @@ sys.stderr = io.StringIO()
         {/* Input Section */}
         <section className="w-full max-w-2xl bg-black/40 border border-gold/20 p-6 rounded-xl relative group transition-all duration-300 focus-within:border-gold-glow focus-within:shadow-[0_0_15px_rgba(251,199,26,0.3)]">
           <label className="block mb-4 text-nebula italic opacity-90 transition-opacity group-focus-within:opacity-100">
-            Vibration Alignment
+            State Alignment
           </label>
           <textarea
             className="w-full bg-transparent outline-none focus:ring-0 text-xl text-gold-glow resize-none placeholder-gold/30"
             rows={3}
-            placeholder="Describe your current frequency (e.g. 'Radiant, Aware, Looking forward...')"
+            placeholder="What’s on your mind? (Describe your current state...)"
             value={vibrationText}
             onChange={(e) => setVibrationText(e.target.value)}
           />
@@ -395,14 +413,6 @@ sys.stderr = io.StringIO()
             </button>
           </div>
         </section>
-
-        {/* Description Section */}
-        {description && (
-          <div className="mt-8 w-full max-w-2xl text-center fade-in px-4">
-            <h3 className="text-lg font-bold mb-2 text-gold-glow">✨ Aetheric Description</h3>
-            <p className="opacity-80 leading-relaxed italic">{description}</p>
-          </div>
-        )}
 
         {/* Code Stream Section */}
         <div className="mt-8 w-full max-w-2xl h-64 overflow-y-auto border-l-2 border-gold/30 pl-4 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
@@ -443,25 +453,55 @@ sys.stderr = io.StringIO()
           </div>
         )}
 
-        {/* Seed & Image Prompt Section */}
-        {(seedOfTruth || imagePrompt) && (
-          <div className="mt-8 w-full max-w-2xl flex flex-col md:flex-row gap-6 mb-12">
-            {seedOfTruth && (
-              <div className="flex-1 bg-black/40 border border-gold/20 p-4 rounded-xl">
-                <h3 className="mb-2 text-nebula italic">👁️ Seed of Truth</h3>
-                <p className="text-sm opacity-80">{seedOfTruth}</p>
-              </div>
-            )}
-            {imagePrompt && (
-              <div className="flex-1 bg-black/40 border border-gold/20 p-4 rounded-xl flex flex-col">
-                <h3 className="mb-2 text-gold-glow italic">🖼️ Vision Prompt</h3>
-                <p className="text-xs opacity-70 p-2 bg-obsidian rounded font-sans text-white/80 mb-4">{imagePrompt}</p>
-                <div className="w-full min-h-[12rem] h-full bg-obsidian/50 rounded border border-gold/10 overflow-hidden relative mt-auto group">
-                  <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={400} />
-                  <div className="absolute inset-0 border border-gold/20 pointer-events-none rounded z-20"></div>
+        {/* Artifact Card Container */}
+        {(description || seedOfTruth || imagePrompt) && (
+          <div className="mt-8 w-full max-w-2xl flex flex-col items-center gap-6 mb-12">
+            <div 
+              ref={cardRef}
+              className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
+            >
+              {/* Subtle background glow for the card */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
+
+              {imagePrompt && (
+                <div className="relative w-full max-w-xl aspect-square md:aspect-[4/3] rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+                   <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" />
+                   
+                   {/* Seed of Truth Overlay */}
+                   {seedOfTruth && (
+                     <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
+                       <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
+                         "{seedOfTruth}"
+                       </p>
+                     </div>
+                   )}
                 </div>
+              )}
+
+              {/* Aetheric Description Below Image */}
+              {description && (
+                <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
+                  <p className="font-serif italic text-gold/70 leading-relaxed text-lg">
+                    {description}
+                  </p>
+                </div>
+              )}
+
+              {/* Branding Footer */}
+              <div className="w-full mt-8 pt-4 border-t border-gold/10 text-right relative z-10">
+                <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
+                  Elias & Gem Protocol | Transmuted Artifact
+                </span>
               </div>
-            )}
+            </div>
+
+            {/* Capture Artifact Button */}
+            <button
+              onClick={exportArtifact}
+              className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
+            >
+              <span>Capture Artifact 📸</span>
+            </button>
           </div>
         )}
 
