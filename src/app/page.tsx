@@ -73,9 +73,9 @@ export default function CyberZenPortal() {
   
   // Audio and Glow states
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
-  const ambientAudioRef = useRef<HTMLAudioElement>(null);
-  const chimeAudioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const ambientOscRef = useRef<OscillatorNode | null>(null);
+  const ambientGainRef = useRef<GainNode | null>(null);
 
   // Response states
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
@@ -172,14 +172,48 @@ export default function CyberZenPortal() {
   };
 
   const toggleAmbient = () => {
-    if (ambientAudioRef.current) {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+
       if (isAmbientPlaying) {
-        ambientAudioRef.current.pause();
+        if (ambientGainRef.current && ambientOscRef.current) {
+          ambientGainRef.current.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 1);
+          const oscToStop = ambientOscRef.current;
+          setTimeout(() => {
+            try {
+              oscToStop.stop();
+              oscToStop.disconnect();
+            } catch (e) {}
+          }, 1000);
+          ambientOscRef.current = null;
+        }
         setIsAmbientPlaying(false);
       } else {
-        ambientAudioRef.current.volume = 0.2;
-        ambientAudioRef.current.play().then(() => setIsAmbientPlaying(true)).catch(e => console.log("Audio play failed:", e));
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        // Deep meditative drone (C2)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(65.41, ctx.currentTime);
+        
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 3); // 3-second fade in
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start();
+        ambientOscRef.current = osc;
+        ambientGainRef.current = gain;
+        
+        setIsAmbientPlaying(true);
       }
+    } catch (e) {
+      console.error("Ambient toggle failed", e);
     }
   };
 
@@ -389,8 +423,6 @@ sys.stderr = io.StringIO()
   return (
     <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
-      
-      <audio ref={ambientAudioRef} loop src="https://cdn.pixabay.com/audio/2022/10/25/audio_24419cb7d4.mp3" />
 
       <div className="cyber-zen-bg"></div>
 
