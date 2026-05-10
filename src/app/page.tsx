@@ -71,6 +71,12 @@ export default function CyberZenPortal() {
   const [vibrationText, setVibrationText] = useState('');
   const [isTransmuting, setIsTransmuting] = useState(false);
   
+  // Audio and Glow states
+  const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
+  const ambientAudioRef = useRef<HTMLAudioElement>(null);
+  const chimeAudioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+
   // Response states
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
   const [seedOfTruth, setSeedOfTruth] = useState('');
@@ -100,6 +106,54 @@ export default function CyberZenPortal() {
 
   // Artifact Ref
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+    e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+  };
+
+  const playTypingSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600 + Math.random() * 100, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.05);
+      
+      gain.gain.setValueAtTime(0.02, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch (e) {
+      // Ignore if audio context fails
+    }
+  };
+
+  const toggleAmbient = () => {
+    if (ambientAudioRef.current) {
+      if (isAmbientPlaying) {
+        ambientAudioRef.current.pause();
+        setIsAmbientPlaying(false);
+      } else {
+        ambientAudioRef.current.volume = 0.2;
+        ambientAudioRef.current.play().then(() => setIsAmbientPlaying(true)).catch(e => console.log("Audio play failed:", e));
+      }
+    }
+  };
 
   const exportArtifact = async () => {
     if (cardRef.current) {
@@ -292,6 +346,10 @@ sys.stderr = io.StringIO()
 
         startTypingEffect(data.aethericCode, () => {
           executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
+          if (chimeAudioRef.current) {
+            chimeAudioRef.current.volume = 0.4;
+            chimeAudioRef.current.play().catch(e => console.log("Chime play failed", e));
+          }
         });
       } else {
         startTypingEffect("# ERROR: Reality breach detected.\n# " + data.error);
@@ -307,7 +365,19 @@ sys.stderr = io.StringIO()
     <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
       
+      <audio ref={ambientAudioRef} loop src="https://cdn.pixabay.com/audio/2022/10/25/audio_24419cb7d4.mp3" />
+      <audio ref={chimeAudioRef} src="https://actions.google.com/sounds/v1/water/glass_water_pour.ogg" />
+
       <div className="cyber-zen-bg"></div>
+
+      {/* Ambient Audio Toggle */}
+      <button 
+        onClick={toggleAmbient}
+        className={`fixed top-6 left-6 z-50 p-3 rounded-full border transition-all ${isAmbientPlaying ? 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow' : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'}`}
+        title="Toggle Ambient Soundscape"
+      >
+        🎧
+      </button>
       
       {particles.map((leftPos, i) => (
         <div
@@ -376,7 +446,10 @@ sys.stderr = io.StringIO()
       </div>
 
       {/* Main Content Pane */}
-      <div className="min-h-screen text-gold font-mono p-4 md:p-8 flex flex-col items-center relative z-10 w-full">
+      <div 
+        className="min-h-screen text-gold font-mono p-4 md:p-8 flex flex-col items-center relative z-10 w-full mouse-glow-container"
+        onMouseMove={handleMouseMove}
+      >
         <header className="mb-4 opacity-80 text-sm tracking-widest uppercase animate-golden-pulse text-center">
           --- Aetheric Code Scribe v2.0 ---
         </header>
@@ -397,7 +470,10 @@ sys.stderr = io.StringIO()
             rows={3}
             placeholder="What’s on your mind? (Describe your current state...)"
             value={vibrationText}
-            onChange={(e) => setVibrationText(e.target.value)}
+            onChange={(e) => {
+              setVibrationText(e.target.value);
+              playTypingSound();
+            }}
           />
           <div className="mt-4 flex justify-end">
             <button
@@ -466,6 +542,7 @@ sys.stderr = io.StringIO()
               {imagePrompt && (
                 <div className="relative w-full max-w-xl aspect-square md:aspect-[4/3] rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
                    <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" />
+                   <div className="scanline"></div>
                    
                    {/* Seed of Truth Overlay */}
                    {seedOfTruth && (
