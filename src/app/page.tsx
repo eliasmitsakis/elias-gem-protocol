@@ -143,6 +143,34 @@ export default function CyberZenPortal() {
     }
   };
 
+  const playChimeSound = () => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 frequency for a pleasant bell/chime
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.5);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 2.5);
+    } catch (e) {
+      console.log("Chime synthesize failed", e);
+    }
+  };
+
   const toggleAmbient = () => {
     if (ambientAudioRef.current) {
       if (isAmbientPlaying) {
@@ -346,10 +374,7 @@ sys.stderr = io.StringIO()
 
         startTypingEffect(data.aethericCode, () => {
           executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
-          if (chimeAudioRef.current) {
-            chimeAudioRef.current.volume = 0.4;
-            chimeAudioRef.current.play().catch(e => console.log("Chime play failed", e));
-          }
+          playChimeSound();
         });
       } else {
         startTypingEffect("# ERROR: Reality breach detected.\n# " + data.error);
@@ -366,7 +391,6 @@ sys.stderr = io.StringIO()
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
       
       <audio ref={ambientAudioRef} loop src="https://cdn.pixabay.com/audio/2022/10/25/audio_24419cb7d4.mp3" />
-      <audio ref={chimeAudioRef} src="https://actions.google.com/sounds/v1/water/glass_water_pour.ogg" />
 
       <div className="cyber-zen-bg"></div>
 
