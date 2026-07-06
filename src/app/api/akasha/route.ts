@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 // Define the file path for the Akashic Records (Local JSON fallback)
@@ -32,7 +33,7 @@ const ensureDataFile = () => {
 
 export async function GET() {
   try {
-    // 1. SUPABASE CLOUD (Primary)
+    // 1. SUPABASE CLOUD (Primary) — public SELECT, no auth needed
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase
         .from('akashic_records')
@@ -84,22 +85,47 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const record: Omit<TransmutationRecord, 'id' | 'timestamp'> = await req.json();
+    const body = await req.json();
+    const { accessToken, ...record }: { accessToken?: string } & Omit<TransmutationRecord, 'id' | 'timestamp'> = body;
 
     // 1. SUPABASE CLOUD (Primary)
-    if (isSupabaseConfigured && supabase) {
-       const { data, error } = await supabase
-          .from('akashic_records')
-          .insert([
-             {
-               vibrationtext: record.vibrationText,
-               description: record.description || null,
-               aethericcode: record.aethericCode,
-               seedoftruth: record.seedOfTruth,
-               imageprompt: record.imagePrompt,
-               executionoutput: record.executionOutput
-             }
-          ]);
+    if (isSupabaseConfigured && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      // Gate: require an authenticated user token for INSERT
+      if (!accessToken) {
+        return NextResponse.json({ error: 'Authentication required to transmute.' }, { status: 401 });
+      }
+
+      // Create a user-scoped Supabase client so auth.uid() resolves correctly in RLS
+      const userSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          global: {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        }
+      );
+
+      // Resolve the user's ID from their JWT
+      const { data: { user }, error: userError } = await userSupabase.auth.getUser();
+      if (userError || !user) {
+        console.error("Invalid access token", userError);
+        return NextResponse.json({ error: 'Invalid or expired session. Please sign in again.' }, { status: 401 });
+      }
+
+      const { data, error } = await userSupabase
+        .from('akashic_records')
+        .insert([
+           {
+             user_id: user.id,
+             vibrationtext: record.vibrationText,
+             description: record.description || null,
+             aethericcode: record.aethericCode,
+             seedoftruth: record.seedOfTruth,
+             imageprompt: record.imagePrompt,
+             executionoutput: record.executionOutput
+           }
+        ]);
        
        if (error) {
           console.error("Supabase POST Error", error);
@@ -114,13 +140,11 @@ export async function POST(req: Request) {
            if (imgRes.ok) {
              const buffer = await imgRes.arrayBuffer();
              
-             // Create a safe, deterministic filename based on a hash of the prompt
-             // We use a simple hash instead of a new db column
              const crypto = require('crypto');
              const promptHash = crypto.createHash('md5').update(record.imagePrompt).digest('hex');
              const fileName = `${promptHash}.jpg`;
 
-             const { error: uploadError } = await supabase.storage
+             const { error: uploadError } = await userSupabase.storage
                .from('akashic_visions')
                .upload(fileName, buffer, {
                  contentType: 'image/jpeg',
@@ -139,7 +163,7 @@ export async function POST(req: Request) {
        return NextResponse.json({ message: 'Record written to Supabase successfully.', record: data });
     }
     
-    // 2. LOCAL JSON FALLBACK
+    // 2. LOCAL JSON FALLBACK (no auth gate in local mode)
     ensureDataFile();
     const fileData = fs.readFileSync(dataFilePath, 'utf-8');
     let records: TransmutationRecord[] = [];

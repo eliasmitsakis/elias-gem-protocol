@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
 import { toPng } from 'html-to-image';
+import { useAuth } from '@/lib/AuthContext';
 
 declare global {
   interface Window {
@@ -66,7 +67,74 @@ const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { pr
   );
 };
 
+// --- Google Sign-In Button Component ---
+const GoogleSignInButton = ({ onClick }: { onClick: () => void }) => (
+  <button
+    id="google-signin-btn"
+    onClick={onClick}
+    className="flex items-center gap-2 px-4 py-2 bg-black/60 border border-gold/40 rounded-full text-gold/80 text-xs font-mono uppercase tracking-widest hover:bg-gold/10 hover:border-gold hover:text-gold hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all duration-300"
+    title="Sign in with Google"
+  >
+    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Sign In
+  </button>
+);
+
+// --- User Avatar / Sign-Out Component ---
+const UserMenu = ({ user, onSignOut }: { user: any; onSignOut: () => void }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const avatarUrl = user?.user_metadata?.avatar_url;
+  const displayName = user?.user_metadata?.full_name || user?.email || 'Aetheric Adept';
+
+  return (
+    <div className="relative">
+      <button
+        id="user-avatar-btn"
+        onClick={() => setMenuOpen(!menuOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-gold/40 rounded-full hover:border-gold hover:shadow-[0_0_10px_rgba(251,199,26,0.2)] transition-all duration-300"
+        title={displayName}
+      >
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt="Avatar" className="w-6 h-6 rounded-full border border-gold/40" />
+        ) : (
+          <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-gold text-xs font-bold">
+            {displayName[0].toUpperCase()}
+          </div>
+        )}
+        <span className="text-gold/80 text-xs font-mono max-w-[100px] truncate hidden sm:block">
+          {displayName.split(' ')[0]}
+        </span>
+        <span className="text-gold/40 text-xs">▾</span>
+      </button>
+
+      {menuOpen && (
+        <div className="absolute right-0 top-full mt-2 w-48 bg-obsidian/95 border border-gold/20 rounded-lg shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gold/10">
+            <p className="text-gold/80 text-xs font-mono truncate">{displayName}</p>
+            <p className="text-gold/40 text-[10px] truncate">{user?.email}</p>
+          </div>
+          <button
+            id="sign-out-btn"
+            onClick={() => { setMenuOpen(false); onSignOut(); }}
+            className="w-full text-left px-4 py-3 text-xs text-nebula/80 font-mono hover:bg-nebula/10 hover:text-nebula transition-colors duration-200"
+          >
+            ⊗ Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function CyberZenPortal() {
+  const { user, session, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+
   const [particles, setParticles] = useState<number[]>([]);
   const [vibrationText, setVibrationText] = useState('');
   const [isTransmuting, setIsTransmuting] = useState(false);
@@ -262,10 +330,14 @@ export default function CyberZenPortal() {
 
   const saveToAkasha = async (execOutput: {stdout: string, stderr: string}, code: string, seed: string, img: string, desc: string, currentVibText: string) => {
     try {
+      // Include the user's access token so the API route can enforce RLS
+      const accessToken = session?.access_token;
+
       await fetch('/api/akasha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          accessToken,
           vibrationText: currentVibText,
           description: desc,
           aethericCode: code,
@@ -345,7 +417,7 @@ sys.stderr = io.StringIO()
   };
 
   const handleTransmute = async () => {
-    if (!vibrationText.trim()) return;
+    if (!vibrationText.trim() || !user) return;
     
     setIsTransmuting(true);
     setShowExecution(false);
@@ -387,6 +459,8 @@ sys.stderr = io.StringIO()
     }
   };
 
+  const isTransmuteDisabled = isTransmuting || !vibrationText.trim() || !pyodideReady || !user;
+
   return (
     <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
@@ -416,14 +490,26 @@ sys.stderr = io.StringIO()
         ></div>
       ))}
 
-      {/* Floating Toggle Button for The Akashic Scroll */}
-      <button 
-        onClick={() => setIsAkashaOpen(!isAkashaOpen)}
-        className="fixed top-6 right-6 z-50 p-3 bg-black/60 border border-gold/40 rounded-full text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all animate-golden-pulse"
-        title="Toggle The Aetheric Scroll"
-      >
-        📜
-      </button>
+      {/* Top-right controls: Auth + Scroll Toggle */}
+      <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+        {/* Auth Controls */}
+        {!authLoading && (
+          user ? (
+            <UserMenu user={user} onSignOut={signOut} />
+          ) : (
+            <GoogleSignInButton onClick={signInWithGoogle} />
+          )
+        )}
+
+        {/* Floating Toggle Button for The Akashic Scroll */}
+        <button 
+          onClick={() => setIsAkashaOpen(!isAkashaOpen)}
+          className="p-3 bg-black/60 border border-gold/40 rounded-full text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all animate-golden-pulse"
+          title="Toggle The Aetheric Scroll"
+        >
+          📜
+        </button>
+      </div>
 
       {/* The Akashic Scroll Sidebar */}
       <div 
@@ -493,20 +579,37 @@ sys.stderr = io.StringIO()
           <textarea
             className="w-full bg-transparent outline-none focus:ring-0 text-xl text-gold-glow resize-none placeholder-gold/30"
             rows={3}
-            placeholder="What’s on your mind? (Describe your current state...)"
+            placeholder="What's on your mind? (Describe your current state...)"
             value={vibrationText}
             onChange={(e) => {
               setVibrationText(e.target.value);
               playTypingSound();
             }}
           />
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex items-center justify-between gap-4">
+            {/* Auth Gate Message */}
+            {!authLoading && !user && (
+              <p className="text-nebula/60 text-xs italic flex items-center gap-1.5">
+                <span className="text-nebula">⚡</span>
+                Sign in to unlock Transmute
+              </p>
+            )}
+            {!authLoading && user && (
+              <p className="text-gold/40 text-xs italic">
+                ✓ Signed in as {user.user_metadata?.full_name?.split(' ')[0] || 'Adept'}
+              </p>
+            )}
+            {authLoading && <span />}
+
             <button
+              id="transmute-btn"
               onClick={handleTransmute}
-              disabled={isTransmuting || !vibrationText.trim() || !pyodideReady}
+              disabled={isTransmuteDisabled}
               className={`px-6 py-2 rounded uppercase tracking-widest text-sm transition-all duration-300 border ${
                 isTransmuting 
                   ? 'border-gold text-gold animate-golden-pulse bg-gold/10' 
+                  : !user
+                  ? 'border-gold/20 text-gold/30 cursor-not-allowed'
                   : 'border-gold/50 text-gold/80 hover:border-gold hover:text-gold hover:bg-gold/5'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
