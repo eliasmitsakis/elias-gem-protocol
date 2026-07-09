@@ -20,6 +20,7 @@ const AethericImage = ({
   className = "",
   objectFit = 'cover',
   noFallback = false,
+  silentError = false,
 }: {
   prompt: string;
   imageUrl?: string;
@@ -29,6 +30,8 @@ const AethericImage = ({
   objectFit?: 'cover' | 'contain';
   // When true, a broken imageUrl shows an error state instead of calling /api/vision
   noFallback?: boolean;
+  // When true, errors show a subtle placeholder instead of the [!] error text
+  silentError?: boolean;
 }) => {
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -49,7 +52,7 @@ const AethericImage = ({
 
   return (
     <div className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
-      {!loaded && !hasError && (
+      {!loaded && !hasError && currentSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
           <p className="text-nebula text-xs animate-pulse opacity-90 font-mono italic mb-2">
             [+] Manifesting Vision...
@@ -60,11 +63,18 @@ const AethericImage = ({
         </div>
       )}
       {hasError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0 border border-red-900/30 bg-red-900/10">
-          <p className="text-red-500/80 text-xs font-mono italic mb-2">
-            [!] Vision collapsed in the void.
-          </p>
-        </div>
+        silentError ? (
+          // Subtle placeholder for sidebar thumbnails — no scary error text
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+            <span className="text-gold/20 text-2xl">✦</span>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0 border border-red-900/30 bg-red-900/10">
+            <p className="text-red-500/80 text-xs font-mono italic mb-2">
+              [!] Vision collapsed in the void.
+            </p>
+          </div>
+        )
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {!hasError && currentSrc && (
@@ -86,8 +96,8 @@ const AethericImage = ({
       )}
       {/* noFallback + no imageUrl: show placeholder without calling the API */}
       {!hasError && !currentSrc && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
-          <p className="text-gold/20 text-xs font-mono italic">No vision stored.</p>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+          <span className="text-gold/20 text-2xl">✦</span>
         </div>
       )}
     </div>
@@ -174,7 +184,10 @@ export default function CyberZenPortal() {
   // Response states
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
   const [seedOfTruth, setSeedOfTruth] = useState('');
-  // Track whether current view is replayed from history (suppresses re-generation)
+  // Track whether current view is replayed from history (suppresses re-generation).
+  // We use BOTH a ref (synchronous, for guards inside async functions/callbacks)
+  // and state (for reactive prop passing to AethericImage).
+  const isReplayRef = useRef(false);
   const [isReplay, setIsReplay] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
@@ -368,6 +381,8 @@ export default function CyberZenPortal() {
   }, [session, authLoading]);
 
   const saveToAkasha = async (execOutput: {stdout: string, stderr: string}, code: string, seed: string, img: string, desc: string, currentVibText: string) => {
+    // Hard guard: never save to Akasha during a history replay
+    if (isReplayRef.current) return;
     try {
       // Include the user's access token so the API route can enforce RLS
       const accessToken = session?.access_token;
@@ -437,29 +452,30 @@ sys.stderr = io.StringIO()
   };
 
   const handleReplay = (record: any) => {
-    setIsReplay(true); // Mark as history replay — suppress re-generation
+    // Set the ref synchronously FIRST — guards saveToAkasha and any callbacks
+    isReplayRef.current = true;
+    setIsReplay(true);
+
     setVibrationText(record.vibrationText);
     setAethericCode(record.aethericCode);
     setSeedOfTruth(record.seedOfTruth);
     setImagePrompt(record.imagePrompt || '');
     setCurrentImageUrl(record.imageUrl || '');
     setDescription(record.description || '');
-    
-    setShowExecution(false);
-    setIsExecuting(false);
-    
-    startTypingEffect(record.aethericCode, () => {
-      setExecutionOutput(record.executionOutput || { stdout: '', stderr: '' });
-      setShowExecution(true);
-    });
+    setExecutionOutput(record.executionOutput || { stdout: '', stderr: '' });
+    setShowExecution(true);
+    // Instantly display stored code — no typing animation that looks like regeneration
+    setTypedCode(record.aethericCode || '');
 
     if (window.innerWidth < 1024) setIsAkashaOpen(false);
   };
 
   const handleTransmute = async () => {
     if (!vibrationText.trim() || !user) return;
-    
-    setIsReplay(false); // Fresh transmutation — allow generation
+
+    // Mark as fresh generation — re-enable saving and generation fallbacks
+    isReplayRef.current = false;
+    setIsReplay(false);
     setIsTransmuting(true);
     setShowExecution(false);
     setSeedOfTruth('');
@@ -585,8 +601,16 @@ sys.stderr = io.StringIO()
                       </div>
                       
                       {record.imagePrompt && (
-                        <div className="w-full aspect-video rounded border border-gold/20 overflow-hidden mt-2">
-                          <AethericImage prompt={record.imagePrompt} imageUrl={record.imageUrl} width={800} height={400} objectFit="contain" noFallback />
+                        <div className="w-full aspect-square rounded border border-gold/20 overflow-hidden mt-2">
+                          <AethericImage
+                            prompt={record.imagePrompt}
+                            imageUrl={record.imageUrl}
+                            width={400}
+                            height={400}
+                            objectFit="cover"
+                            noFallback
+                            silentError
+                          />
                         </div>
                       )}
                     </div>
