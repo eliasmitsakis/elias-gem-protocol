@@ -159,6 +159,10 @@ export async function POST(req: Request) {
        // Generate and upload image to Supabase Storage using Fal.ai Flux.1 Schnell
        if (record.imagePrompt && process.env.FAL_KEY) {
          try {
+           // Append artistic style modifiers — consistent with /api/vision
+           const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
+           const styledPrompt = record.imagePrompt + STYLE_SUFFIX;
+
            // 1. Generate image via Fal.ai Flux.1 Schnell (square_hd = 1344×1344px)
            const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
              method: 'POST',
@@ -167,7 +171,7 @@ export async function POST(req: Request) {
                'Content-Type': 'application/json',
              },
              body: JSON.stringify({
-               prompt: record.imagePrompt,
+               prompt: styledPrompt,
                image_size: 'square_hd',
                num_inference_steps: 4,
                num_images: 1,

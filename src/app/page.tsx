@@ -12,7 +12,24 @@ declare global {
   }
 }
 
-const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { prompt: string; imageUrl?: string; width: number; height: number; className?: string }) => {
+const AethericImage = ({
+  prompt,
+  imageUrl,
+  width,
+  height,
+  className = "",
+  objectFit = 'cover',
+  noFallback = false,
+}: {
+  prompt: string;
+  imageUrl?: string;
+  width: number;
+  height: number;
+  className?: string;
+  objectFit?: 'cover' | 'contain';
+  // When true, a broken imageUrl shows an error state instead of calling /api/vision
+  noFallback?: boolean;
+}) => {
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
@@ -23,9 +40,12 @@ const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { pr
     setUseFallback(false);
   }, [prompt, imageUrl]);
 
-  const currentSrc = useFallback || !imageUrl 
+  // noFallback: never hit the generation API (safe for history replay)
+  const currentSrc = (!noFallback && (useFallback || !imageUrl))
     ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
-    : imageUrl;
+    : (imageUrl || null);
+
+  const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
 
   return (
     <div className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
@@ -47,14 +67,15 @@ const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { pr
         </div>
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {!hasError && (
-        <img 
-          src={currentSrc} 
-          alt="Aetheric Vision" 
-          className={`w-full h-full object-cover transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
+      {!hasError && currentSrc && (
+        <img
+          src={currentSrc}
+          alt="Aetheric Vision"
+          className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
           onError={() => {
-            if (!useFallback && imageUrl) {
+            if (!noFallback && !useFallback && imageUrl) {
+              // Try the generation API as a fallback (fresh transmutations only)
               setUseFallback(true);
             } else {
               setHasError(true);
@@ -62,6 +83,12 @@ const AethericImage = ({ prompt, imageUrl, width, height, className = "" }: { pr
             }
           }}
         />
+      )}
+      {/* noFallback + no imageUrl: show placeholder without calling the API */}
+      {!hasError && !currentSrc && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
+          <p className="text-gold/20 text-xs font-mono italic">No vision stored.</p>
+        </div>
       )}
     </div>
   );
@@ -147,6 +174,8 @@ export default function CyberZenPortal() {
   // Response states
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
   const [seedOfTruth, setSeedOfTruth] = useState('');
+  // Track whether current view is replayed from history (suppresses re-generation)
+  const [isReplay, setIsReplay] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [description, setDescription] = useState('');
@@ -408,12 +437,13 @@ sys.stderr = io.StringIO()
   };
 
   const handleReplay = (record: any) => {
+    setIsReplay(true); // Mark as history replay — suppress re-generation
     setVibrationText(record.vibrationText);
     setAethericCode(record.aethericCode);
     setSeedOfTruth(record.seedOfTruth);
     setImagePrompt(record.imagePrompt || '');
     setCurrentImageUrl(record.imageUrl || '');
-    setDescription(''); 
+    setDescription(record.description || '');
     
     setShowExecution(false);
     setIsExecuting(false);
@@ -429,6 +459,7 @@ sys.stderr = io.StringIO()
   const handleTransmute = async () => {
     if (!vibrationText.trim() || !user) return;
     
+    setIsReplay(false); // Fresh transmutation — allow generation
     setIsTransmuting(true);
     setShowExecution(false);
     setSeedOfTruth('');
@@ -555,7 +586,7 @@ sys.stderr = io.StringIO()
                       
                       {record.imagePrompt && (
                         <div className="w-full aspect-video rounded border border-gold/20 overflow-hidden mt-2">
-                          <AethericImage prompt={record.imagePrompt} imageUrl={record.imageUrl} width={800} height={400} />
+                          <AethericImage prompt={record.imagePrompt} imageUrl={record.imageUrl} width={800} height={400} objectFit="contain" noFallback />
                         </div>
                       )}
                     </div>
@@ -679,7 +710,7 @@ sys.stderr = io.StringIO()
 
               {imagePrompt && (
                 <div className="relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
-                   <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" />
+                   <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
                    <div className="scanline"></div>
                    
                    {/* Seed of Truth Overlay */}

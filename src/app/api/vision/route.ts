@@ -17,6 +17,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Append artistic style modifiers — pushes Flux away from photorealistic toward
+    // vector illustration / merch / zen artwork style
+    const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
+    const styledPrompt = prompt + STYLE_SUFFIX;
+
     // 1. Call Fal.ai Flux.1 Schnell to generate the image
     const falRes = await fetch(FAL_FLUX_ENDPOINT, {
       method: 'POST',
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt,
+        prompt: styledPrompt,
         image_size: 'square_hd', // 1344×1344px
         num_inference_steps: 4,
         num_images: 1,
