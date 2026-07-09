@@ -156,31 +156,58 @@ export async function POST(req: Request) {
           throw error;
        }
 
-       // Upload image to Supabase Storage if imagePrompt exists
-       if (record.imagePrompt) {
+       // Generate and upload image to Supabase Storage using Fal.ai Flux.1 Schnell
+       if (record.imagePrompt && process.env.FAL_KEY) {
          try {
-           const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(record.imagePrompt)}?width=800&height=400&nologo=true`;
-           const imgRes = await fetch(pollinationsUrl, { headers: { 'User-Agent': 'Cyber-Zen-Bot/1.0' }});
-           if (imgRes.ok) {
-             const buffer = await imgRes.arrayBuffer();
-             
-             const crypto = require('crypto');
-             const promptHash = crypto.createHash('md5').update(record.imagePrompt).digest('hex');
-             const fileName = `${promptHash}.jpg`;
+           // 1. Generate image via Fal.ai Flux.1 Schnell (square_hd = 1344×1344px)
+           const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
+             method: 'POST',
+             headers: {
+               'Authorization': `Key ${process.env.FAL_KEY}`,
+               'Content-Type': 'application/json',
+             },
+             body: JSON.stringify({
+               prompt: record.imagePrompt,
+               image_size: 'square_hd',
+               num_inference_steps: 4,
+               num_images: 1,
+               enable_safety_checker: false,
+             }),
+           });
 
-             const { error: uploadError } = await userSupabase.storage
-               .from('akashic_visions')
-               .upload(fileName, buffer, {
-                 contentType: 'image/jpeg',
-                 upsert: true
-               });
-               
-             if (uploadError) {
-               console.error("Supabase Storage Upload Error", uploadError);
+           if (falRes.ok) {
+             const falData = await falRes.json();
+             const falImageUrl = falData?.images?.[0]?.url;
+
+             if (falImageUrl) {
+               // 2. Fetch the image bytes from Fal CDN
+               const imgRes = await fetch(falImageUrl);
+               if (imgRes.ok) {
+                 const buffer = await imgRes.arrayBuffer();
+
+                 const crypto = require('crypto');
+                 const promptHash = crypto.createHash('md5').update(record.imagePrompt).digest('hex');
+                 const fileName = `${promptHash}.jpg`;
+
+                 // 3. Upload to Supabase Storage
+                 const { error: uploadError } = await userSupabase.storage
+                   .from('akashic_visions')
+                   .upload(fileName, buffer, {
+                     contentType: 'image/jpeg',
+                     upsert: true
+                   });
+
+                 if (uploadError) {
+                   console.error("Supabase Storage Upload Error", uploadError);
+                 }
+               }
              }
+           } else {
+             const errText = await falRes.text();
+             console.error("Fal.ai image generation failed:", falRes.status, errText);
            }
          } catch (e) {
-           console.error("Failed to backup vision to Supabase Storage", e);
+           console.error("Failed to generate/upload vision via Fal.ai", e);
          }
        }
 
