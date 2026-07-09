@@ -286,7 +286,12 @@ export default function CyberZenPortal() {
 
   const fetchAkashicRecords = async (scrollToTop = false) => {
     try {
-      const res = await fetch('/api/akasha');
+      const accessToken = session?.access_token;
+      const headers: HeadersInit = accessToken
+        ? { Authorization: `Bearer ${accessToken}` }
+        : {};
+
+      const res = await fetch('/api/akasha', { headers });
       if (res.ok) {
         const data = await res.json();
         setAkashaRecords(data);
@@ -319,14 +324,19 @@ export default function CyberZenPortal() {
   useEffect(() => {
     const newParticles = Array.from({ length: 30 }).map(() => Math.random() * 100);
     setParticles(newParticles);
-
     startTypingEffect(aethericCode);
-    fetchAkashicRecords();
     
     return () => {
       if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
     };
   }, []);
+
+  // Re-fetch records whenever the session changes (login / logout)
+  useEffect(() => {
+    if (!authLoading) {
+      fetchAkashicRecords();
+    }
+  }, [session, authLoading]);
 
   const saveToAkasha = async (execOutput: {stdout: string, stderr: string}, code: string, seed: string, img: string, desc: string, currentVibText: string) => {
     try {

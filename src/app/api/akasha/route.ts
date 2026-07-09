@@ -31,19 +31,43 @@ const ensureDataFile = () => {
   }
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // 1. SUPABASE CLOUD (Primary) — public SELECT, no auth needed
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+    // 1. SUPABASE CLOUD (Primary) — filter by user_id when authenticated
+    if (isSupabaseConfigured && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      const authHeader = req.headers.get('Authorization');
+      const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+      // Require authentication — no token means no records
+      if (!accessToken) {
+        return NextResponse.json([]);
+      }
+
+      // Build a user-scoped client so auth.uid() resolves correctly
+      const userSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+      );
+
+      // Validate the token and resolve the user's ID
+      const { data: { user }, error: userError } = await userSupabase.auth.getUser();
+      if (userError || !user) {
+        return NextResponse.json([]);
+      }
+
+      // Fetch only this user's records
+      const { data, error } = await userSupabase
         .from('akashic_records')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error("Supabase GET Error", error);
         throw error;
       }
+
       const crypto = require('crypto');
       const transformedData = (data || []).map((row: any) => {
         let imageUrl = null;
