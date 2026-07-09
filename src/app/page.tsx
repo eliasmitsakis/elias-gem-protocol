@@ -585,8 +585,8 @@ sys.stderr = io.StringIO()
                 akashaRecords.map((record) => {
                   const timestampStr = record.created_at || record.timestamp;
                   return (
-                    <div key={record.id} onClick={() => handleReplay(record)} className="relative pl-6 py-4 pr-4 bg-black/40 border border-gold/20 rounded-lg group cursor-pointer hover:bg-black/60 hover:border-gold/50 hover:shadow-[0_0_15px_rgba(251,199,26,0.1)] transition-all">
-                      <div className="absolute -left-1.5 top-6 w-3 h-3 bg-obsidian border border-gold/60 rounded-full group-hover:bg-gold-glow group-hover:shadow-[0_0_8px_rgba(251,199,26,0.8)] transition-all"></div>
+                    <div key={record.id} className="relative pl-6 py-4 pr-4 bg-black/40 border border-gold/20 rounded-lg">
+                      <div className="absolute -left-1.5 top-6 w-3 h-3 bg-obsidian border border-gold/60 rounded-full"></div>
                       <p className="text-xs text-nebula/60 mb-2">{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
                       <p className="font-bold text-gold-glow mb-3">"{record.vibrationText}"</p>
                       
@@ -608,7 +608,6 @@ sys.stderr = io.StringIO()
                             width={400}
                             height={400}
                             objectFit="cover"
-                            noFallback
                             silentError
                           />
                         </div>
