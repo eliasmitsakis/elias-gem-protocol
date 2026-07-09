@@ -678,7 +678,7 @@ sys.stderr = io.StringIO()
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
 
               {imagePrompt && (
-                <div className="relative w-full max-w-xl aspect-square md:aspect-[4/3] rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+                <div className="relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
                    <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" />
                    <div className="scanline"></div>
                    
