@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     `;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash', // Confirmed stable on this key. Billing propagation clears new-user block in 24-48h.
       contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
     });
 
