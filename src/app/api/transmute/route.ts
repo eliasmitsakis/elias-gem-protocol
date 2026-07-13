@@ -14,8 +14,8 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Upgraded to gemini-1.5-pro-latest for better capacity and output quality (avoids 503 errors from flash)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+    // Using gemini-1.5-pro (stable Pro model) for better capacity and output quality (avoids 503 errors from flash)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const systemInstruction = `
     You are the Cyber-Zen Aetheric Scribe. Your role is to translate human vibration into Python code and spiritual insights.
