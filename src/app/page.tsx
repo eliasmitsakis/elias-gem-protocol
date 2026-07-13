@@ -491,7 +491,7 @@ sys.stderr = io.StringIO()
       const response = await fetch('/api/transmute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vibrationText: currentVibText }),
+        body: JSON.stringify({ vibrationText: currentVibText, accessToken: session?.access_token }),
       });
       
       const data = await response.json();
@@ -506,6 +506,13 @@ sys.stderr = io.StringIO()
           executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
           playChimeSound();
         });
+      } else if (response.status === 403) {
+        // Out of credits — show a distinct, friendly message
+        startTypingEffect(
+          "# ✦ Your transmutation credits have been fully expended.\n" +
+          "# The Wall holds.\n#\n" +
+          "# Contact elias.gemprotocol@gmail.com to restore your access."
+        );
       } else {
         startTypingEffect("# ERROR: Reality breach detected.\n# " + data.error);
       }
@@ -774,8 +781,16 @@ sys.stderr = io.StringIO()
           </div>
         )}
 
-        <footer className="w-full text-center pb-6 mt-auto text-xs opacity-40 hover:opacity-100 transition-opacity cursor-default">
-          Vibration Creates Feed | Elias & Gem Protocol
+        <footer className="w-full text-center pb-6 mt-auto flex flex-col items-center gap-2">
+          <span className="text-xs opacity-40 hover:opacity-100 transition-opacity cursor-default">
+            Vibration Creates Feed | Elias &amp; Gem Protocol
+          </span>
+          <a
+            href="mailto:elias.gemprotocol@gmail.com"
+            className="text-[11px] text-nebula/50 hover:text-nebula transition-colors duration-300 tracking-wide"
+          >
+            Contact &amp; Support: elias.gemprotocol@gmail.com
+          </a>
         </footer>
       </div>
     </div>
