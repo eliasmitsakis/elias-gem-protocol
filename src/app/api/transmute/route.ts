@@ -14,8 +14,8 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Using gemini-2.0-flash (modern, stable, fully supported on v1beta)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // Using gemini-2.5-flash (latest stable, confirmed v1beta compatible)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const systemInstruction = `
     You are the Cyber-Zen Aetheric Scribe. Your role is to translate human vibration into Python code and spiritual insights.
