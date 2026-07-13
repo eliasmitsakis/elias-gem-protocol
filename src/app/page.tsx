@@ -297,7 +297,7 @@ export default function CyberZenPortal() {
   const exportArtifact = async () => {
     if (cardRef.current) {
       try {
-        const dataUrl = await toPng(cardRef.current, { quality: 1, backgroundColor: '#050505' });
+        const dataUrl = await toPng(cardRef.current, { quality: 1, backgroundColor: '#050505', pixelRatio: 4 });
         const link = document.createElement('a');
         link.download = `artifact-${Date.now()}.png`;
         link.href = dataUrl;

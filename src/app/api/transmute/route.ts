@@ -14,8 +14,8 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Using gemini-flash-latest as discovered in our prev testing for this exact API Key setup
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    // Upgraded to gemini-1.5-pro-latest for better capacity and output quality (avoids 503 errors from flash)
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
     const systemInstruction = `
     You are the Cyber-Zen Aetheric Scribe. Your role is to translate human vibration into Python code and spiritual insights.
