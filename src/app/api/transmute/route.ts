@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 // Ensure the API key exists
 const apiKey = process.env.GOOGLE_API_KEY;
@@ -12,10 +12,8 @@ export async function POST(req: Request) {
   try {
     const { vibrationText } = await req.json();
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Using gemini-2.5-flash (latest stable, confirmed v1beta compatible)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // New unified @google/genai SDK (replaces deprecated @google/generative-ai)
+    const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `
     You are the Cyber-Zen Aetheric Scribe. Your role is to translate human vibration into Python code and spiritual insights.
@@ -38,9 +36,13 @@ export async function POST(req: Request) {
     Do NOT include any markdown code blocks wrapping the JSON (no \`\`\`json). Just output the raw JSON object.
     `;
 
-    const result = await model.generateContent(systemInstruction);
-    const textResponse = result.response.text();
-    
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
+    });
+
+    const textResponse = result.text ?? '';
+
     // Clean up potentially wrapped JSON (just in case the LLM disobeys)
     const cleanJsonString = textResponse.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
     let parsedData;
