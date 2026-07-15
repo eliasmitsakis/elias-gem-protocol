@@ -121,7 +121,7 @@ async function runGeneration(vibrationText: string) {
   `;
 
   const result = await ai.models.generateContent({
-    model: 'gemini-2.5-flash', // Confirmed stable on this key. Billing propagation clears new-user block in 24-48h.
+    model: 'gemini-3.5-flash', // Confirmed live on this key via /v1beta/models query (2026-07-15)
     contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
   });
 
