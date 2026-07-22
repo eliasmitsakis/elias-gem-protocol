@@ -391,11 +391,12 @@ export default function CyberZenPortal() {
   const fetchAkashicRecords = async (scrollToTop = false) => {
     try {
       const accessToken = session?.access_token;
-      const headers: HeadersInit = accessToken
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {};
-
-      const res = await fetch('/api/akasha', { headers });
+      const res = await fetch(`/api/akasha?_t=${Date.now()}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setAkashaRecords(data);
