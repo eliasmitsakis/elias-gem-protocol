@@ -208,6 +208,7 @@ export default function CyberZenPortal() {
 
   // Typing effect state
   const [typedCode, setTypedCode] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Scroll Ref for Auto-Scroll
@@ -689,97 +690,130 @@ sys.stderr = io.StringIO()
           </div>
         </section>
 
-        {/* Code Stream Section */}
-        <div className="mt-8 w-full max-w-2xl h-64 overflow-y-auto border-l-2 border-gold/30 pl-4 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
-          <pre className="text-sm md:text-base text-gold/80 leading-relaxed whitespace-pre-wrap word-break">
-            {typedCode}
-            {!showExecution && <span className="animate-pulse text-gold-glow">_</span>}
-          </pre>
-        </div>
+        {/* ── Responsive two-column grid (desktop) / stacked (mobile) ── */}
+        <div className={`mt-8 w-full flex flex-col items-center ${
+          (description || seedOfTruth || imagePrompt)
+            ? 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-8 lg:max-w-5xl'
+            : 'max-w-2xl'
+        }`}>
 
-        {/* Console Output Section */}
-        {showExecution && (
-          <div className="w-full max-w-2xl bg-black border-l-2 border-r-2 border-b-2 border-gold/30 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500">
-             <div className="absolute top-0 left-0 w-full h-full pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.25)_51%)] bg-[length:100%_4px] opacity-30 z-0"></div>
-             <div className="relative z-10 w-full overflow-hidden">
-               <span className="text-gray-600">root@cyber-zen:~#</span> <span className="text-nebula opacity-80">python3 aetheric_matrix.py</span>
-               
-               {isExecuting ? (
-                 <div className="mt-2 text-gold animate-flicker font-bold">
-                   {executionOutput.stdout}
-                 </div>
-               ) : (
-                 <div className="mt-2 text-xs md:text-sm max-h-40 overflow-y-auto pr-2 animate-flicker">
-                   {executionOutput.stdout && (
-                     <pre className="text-gold/80 whitespace-pre-wrap leading-relaxed">{executionOutput.stdout}</pre>
-                   )}
-                   {executionOutput.stderr && (
-                     <pre className="text-nebula/90 whitespace-pre-wrap leading-relaxed mt-2">{executionOutput.stderr}</pre>
-                   )}
-                   {!executionOutput.stdout && !executionOutput.stderr && (
-                     <p className="text-gray-500 italic">Process completed with no output.</p>
-                   )}
-                   <div className="mt-3 flex items-center">
-                     <span className="text-gray-600 mr-2">root@cyber-zen:~#</span> <span className="animate-pulse text-gold/80 text-lg leading-none">_</span>
-                   </div>
-                 </div>
-               )}
-             </div>
-          </div>
-        )}
+          {/* LEFT COLUMN (desktop) / bottom (mobile): Artifact Card */}
+          {(description || seedOfTruth || imagePrompt) && (
+            <div className="flex flex-col items-center gap-6 mb-12 order-2 lg:order-1">
+              <div
+                ref={cardRef}
+                className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
+              >
+                {/* Subtle background glow */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
 
-        {/* Artifact Card Container */}
-        {(description || seedOfTruth || imagePrompt) && (
-          <div className="mt-8 w-full max-w-2xl flex flex-col items-center gap-6 mb-12">
-            <div 
-              ref={cardRef}
-              className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
-            >
-              {/* Subtle background glow for the card */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
+                {imagePrompt && (
+                  <div className="group relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+                    <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
+                    <div className="scanline"></div>
 
-              {imagePrompt && (
-                <div className="relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
-                   <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
-                   <div className="scanline"></div>
-                   
-                   {/* Seed of Truth Overlay */}
-                   {seedOfTruth && (
-                     <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
-                       <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
-                         "{seedOfTruth}"
-                       </p>
-                     </div>
-                   )}
+                    {/* ── Image Prompt Hover Overlay ── */}
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-5 cursor-default">
+                      <p className="text-[10px] uppercase tracking-widest text-nebula/60 mb-3 font-mono">✦ Gemini Image Prompt</p>
+                      <p className="text-xs text-gold/80 font-mono leading-relaxed text-center overflow-y-auto max-h-[80%]">{imagePrompt}</p>
+                    </div>
+
+                    {/* Seed of Truth Overlay */}
+                    {seedOfTruth && (
+                      <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
+                        <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
+                          "{seedOfTruth}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Aetheric Description */}
+                {description && (
+                  <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
+                    <p className="font-serif italic text-gold/70 leading-relaxed text-lg">{description}</p>
+                  </div>
+                )}
+
+                {/* Branding Footer */}
+                <div className="w-full mt-8 pt-4 border-t border-gold/10 text-right relative z-10">
+                  <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
+                    Elias & Gem Protocol | Transmuted Artifact
+                  </span>
                 </div>
-              )}
+              </div>
 
-              {/* Aetheric Description Below Image */}
-              {description && (
-                <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
-                  <p className="font-serif italic text-gold/70 leading-relaxed text-lg">
-                    {description}
-                  </p>
-                </div>
-              )}
+              {/* Capture Artifact Button */}
+              <button
+                onClick={exportArtifact}
+                className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
+              >
+                <span>Capture Artifact 📸</span>
+              </button>
+            </div>
+          )}
 
-              {/* Branding Footer */}
-              <div className="w-full mt-8 pt-4 border-t border-gold/10 text-right relative z-10">
-                <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
-                  Elias & Gem Protocol | Transmuted Artifact
-                </span>
+          {/* RIGHT COLUMN (desktop) / top (mobile): Code Stream + Console */}
+          <div className="w-full order-1 lg:order-2 flex flex-col">
+
+            {/* Code Stream with Copy Button */}
+            <div className="relative w-full">
+              {/* Copy Code Button */}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(aethericCode);
+                  setIsCopied(true);
+                  setTimeout(() => setIsCopied(false), 2000);
+                }}
+                title="Copy code"
+                className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border border-gold/20 text-gold/40 hover:text-gold hover:border-gold/60 transition-all duration-200 text-[10px] font-mono uppercase tracking-wider"
+              >
+                {isCopied ? (
+                  <><span>✓</span><span>Copied!</span></>
+                ) : (
+                  <><svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></>
+                )}
+              </button>
+
+              <div className="w-full h-64 overflow-y-auto border-l-2 border-gold/30 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
+                <pre className="text-sm md:text-base text-gold/80 leading-relaxed whitespace-pre-wrap word-break">
+                  {typedCode}
+                  {!showExecution && <span className="animate-pulse text-gold-glow">_</span>}
+                </pre>
               </div>
             </div>
 
-            {/* Capture Artifact Button */}
-            <button
-              onClick={exportArtifact}
-              className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
-            >
-              <span>Capture Artifact 📸</span>
-            </button>
+            {/* Console Output Section */}
+            {showExecution && (
+              <div className="w-full bg-black border-l-2 border-r-2 border-b-2 border-gold/30 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500">
+                <div className="absolute top-0 left-0 w-full h-full pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.25)_51%)] bg-[length:100%_4px] opacity-30 z-0"></div>
+                <div className="relative z-10 w-full overflow-hidden">
+                  <span className="text-gray-600">root@cyber-zen:~#</span> <span className="text-nebula opacity-80">python3 aetheric_matrix.py</span>
+                  {isExecuting ? (
+                    <div className="mt-2 text-gold animate-flicker font-bold">{executionOutput.stdout}</div>
+                  ) : (
+                    <div className="mt-2 text-xs md:text-sm max-h-56 overflow-y-auto pr-2 animate-flicker">
+                      {executionOutput.stdout && (
+                        <pre className="text-gold/80 whitespace-pre-wrap leading-relaxed">{executionOutput.stdout}</pre>
+                      )}
+                      {executionOutput.stderr && (
+                        <pre className="text-nebula/90 whitespace-pre-wrap leading-relaxed mt-2">{executionOutput.stderr}</pre>
+                      )}
+                      {!executionOutput.stdout && !executionOutput.stderr && (
+                        <p className="text-gray-500 italic">Process completed with no output.</p>
+                      )}
+                      <div className="mt-3 flex items-center">
+                        <span className="text-gray-600 mr-2">root@cyber-zen:~#</span>
+                        <span className="animate-pulse text-gold/80 text-lg leading-none">_</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <footer className="w-full text-center pb-6 mt-auto flex flex-col items-center gap-2">
           <span className="text-xs opacity-40 hover:opacity-100 transition-opacity cursor-default">
