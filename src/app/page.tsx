@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
 import { toPng } from 'html-to-image';
 import { useAuth } from '@/lib/AuthContext';
+import { AethericImage } from '@/components/AethericImage';
 
 declare global {
   interface Window {
@@ -11,98 +12,6 @@ declare global {
     pyodideInstance: any;
   }
 }
-
-const AethericImage = ({
-  prompt,
-  imageUrl,
-  width,
-  height,
-  className = "",
-  objectFit = 'cover',
-  noFallback = false,
-  silentError = false,
-}: {
-  prompt: string;
-  imageUrl?: string;
-  width: number;
-  height: number;
-  className?: string;
-  objectFit?: 'cover' | 'contain';
-  // When true, a broken imageUrl shows an error state instead of calling /api/vision
-  noFallback?: boolean;
-  // When true, errors show a subtle placeholder instead of the [!] error text
-  silentError?: boolean;
-}) => {
-  const [loaded, setLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [useFallback, setUseFallback] = useState(false);
-
-  useEffect(() => {
-    setLoaded(false);
-    setHasError(false);
-    setUseFallback(false);
-  }, [prompt, imageUrl]);
-
-  // noFallback: never hit the generation API (safe for history replay)
-  const currentSrc = (!noFallback && (useFallback || !imageUrl))
-    ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
-    : (imageUrl || null);
-
-  const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
-
-  return (
-    <div className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
-      {!loaded && !hasError && currentSrc && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
-          <p className="text-nebula text-xs animate-pulse opacity-90 font-mono italic mb-2">
-            [+] Manifesting Vision...
-          </p>
-          <p className="text-nebula/60 text-[10px] break-words line-clamp-2 w-full max-w-[90%]">
-            "{prompt}"
-          </p>
-        </div>
-      )}
-      {hasError && (
-        silentError ? (
-          // Subtle placeholder for sidebar thumbnails — no scary error text
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="text-gold/20 text-2xl">✦</span>
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0 border border-red-900/30 bg-red-900/10">
-            <p className="text-red-500/80 text-xs font-mono italic mb-2">
-              [!] Vision collapsed in the void.
-            </p>
-          </div>
-        )
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      {!hasError && currentSrc && (
-        <img
-          src={currentSrc}
-          alt="Aetheric Vision"
-          className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
-          onError={() => {
-            if (!noFallback && !useFallback && imageUrl) {
-              // Try the generation API as a fallback (fresh transmutations only)
-              setUseFallback(true);
-            } else {
-              setHasError(true);
-              setLoaded(true);
-            }
-          }}
-        />
-      )}
-      {/* noFallback + no imageUrl: show placeholder without calling the API */}
-      {!hasError && !currentSrc && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-          <span className="text-gold/20 text-2xl">✦</span>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ── Provider config ──────────────────────────────────────────────────────────
 const PROVIDERS = [
@@ -342,6 +251,8 @@ export default function CyberZenPortal() {
   const [imagePrompt, setImagePrompt] = useState('');
   const [currentImageUrl, setCurrentImageUrl] = useState('');
   const [description, setDescription] = useState('');
+  const [artifactId, setArtifactId] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   // Execution states
   const [showExecution, setShowExecution] = useState(false);
@@ -633,6 +544,7 @@ sys.stderr = io.StringIO()
     setImagePrompt('');
     setCurrentImageUrl('');
     setDescription('');
+    setArtifactId(null);
 
     const currentVibText = vibrationText;
     
@@ -647,26 +559,32 @@ sys.stderr = io.StringIO()
       
       const data = await response.json();
       
-      if (response.ok) {
-        setAethericCode(data.aethericCode);
-        setSeedOfTruth(data.seedOfTruth);
-        setImagePrompt(data.imagePrompt);
-        setDescription(data.description);
-
-        startTypingEffect(data.aethericCode, () => {
-          executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
-          playChimeSound();
-        });
-      } else if (response.status === 403) {
-        // Out of credits — show a distinct, friendly message
-        startTypingEffect(
-          "# ✦ Your transmutation credits have been fully expended.\n" +
-          "# The Wall holds.\n#\n" +
-          "# Contact elias.gemprotocol@gmail.com to restore your access."
-        );
-      } else {
-        startTypingEffect("# ERROR: Reality breach detected.\n# " + data.error);
+      if (!response.ok) {
+        if (response.status === 403) {
+          setAethericCode(data.error);
+        } else {
+          setAethericCode(`# Error: ${data.error || 'Failed to align vibration'}`);
+        }
+        setSeedOfTruth('');
+        setImagePrompt('');
+        setDescription('');
+        setArtifactId(null);
+        return;
       }
+
+      setAethericCode(data.aethericCode);
+      setSeedOfTruth(data.seedOfTruth);
+      setImagePrompt(data.imagePrompt);
+      setDescription(data.description);
+      
+      if (data.id) {
+        setArtifactId(data.id);
+      }
+
+      startTypingEffect(data.aethericCode, () => {
+        executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
+        playChimeSound();
+      });
     } catch (e) {
       startTypingEffect("# ERROR: Failed to reach the Source.");
     } finally {
@@ -902,13 +820,28 @@ sys.stderr = io.StringIO()
                 </div>
               </div>
 
-              {/* Capture Artifact Button */}
-              <button
-                onClick={exportArtifact}
-                className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
-              >
-                <span>Capture Artifact 📸</span>
-              </button>
+              {/* Action Buttons (Capture & Share) */}
+              <div className="w-full flex justify-center items-center gap-4 mt-6">
+                <button
+                  onClick={exportArtifact}
+                  className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
+                >
+                  <span>Capture Artifact 📸</span>
+                </button>
+                
+                {artifactId && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/artifact/${artifactId}`);
+                      setShareCopied(true);
+                      setTimeout(() => setShareCopied(false), 2000);
+                    }}
+                    className="px-6 py-3 bg-nebula/10 border border-nebula text-nebula rounded uppercase tracking-widest text-sm hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)] transition-all duration-300 flex items-center gap-2"
+                  >
+                    <span>{shareCopied ? 'Link Copied! ✓' : 'Share Link 🔗'}</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

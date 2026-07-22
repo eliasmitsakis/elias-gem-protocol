@@ -75,17 +75,63 @@ export async function POST(req: Request) {
             .eq('id', user.id);
         };
 
-        // Run AI generation then deduct
+        // Run AI generation
         const aiResult = await runGeneration(vibrationText);
+
+        // 6. Save the artifact to the database so it can be shared
+        const { data: artifactData, error: artifactError } = await adminClient
+          .from('artifacts')
+          .insert({
+            user_id: user.id,
+            description: aiResult.description,
+            aetheric_code: aiResult.aethericCode,
+            seed_of_truth: aiResult.seedOfTruth,
+            image_prompt: aiResult.imagePrompt
+            // image_url is generated on the client side for now via Pollinations
+          })
+          .select('id')
+          .single();
+
+        if (artifactError) {
+          console.error("Failed to save artifact:", artifactError);
+        }
+
+        // Deduct credit
         await deductCredit();
-        return NextResponse.json(aiResult);
+        
+        return NextResponse.json({ ...aiResult, id: artifactData?.id });
       }
       // Admin path — skip credit check, go straight to generation
     }
 
     // Non-Supabase path OR admin path — generate freely
     const aiResult = await runGeneration(vibrationText);
-    return NextResponse.json(aiResult);
+    
+    // For admins, we should also save the artifact so they can share it
+    let artifactId = null;
+    if (supabaseUrl && serviceRoleKey && accessToken) {
+       const userClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+         global: { headers: { Authorization: `Bearer ${accessToken}` } },
+       });
+       const { data: { user } } = await userClient.auth.getUser();
+       if (user) {
+         const adminClient = createClient(supabaseUrl, serviceRoleKey);
+         const { data: artifactData } = await adminClient
+            .from('artifacts')
+            .insert({
+              user_id: user.id,
+              description: aiResult.description,
+              aetheric_code: aiResult.aethericCode,
+              seed_of_truth: aiResult.seedOfTruth,
+              image_prompt: aiResult.imagePrompt
+            })
+            .select('id')
+            .single();
+         artifactId = artifactData?.id;
+       }
+    }
+
+    return NextResponse.json({ ...aiResult, id: artifactId });
 
   } catch (error: any) {
     console.error("Transmutation Error:", error);
