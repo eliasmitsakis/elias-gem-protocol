@@ -53,8 +53,8 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
     notFound();
   }
 
-  // Use locked image_url from DB, or fallback to pollinations for older records
-  const imageUrl = artifact.image_url || `https://image.pollinations.ai/prompt/${encodeURIComponent(artifact.imageprompt)}?width=800&height=800&nologo=true`;
+  // Use locked image_url from DB, or fallback to our own /api/vision (Fal.ai) for older records
+  const imageUrl = artifact.image_url || `/api/vision?prompt=${encodeURIComponent(artifact.imageprompt)}&width=800&height=800`;
 
   return (
     <div className="min-h-screen bg-[#050505] text-gold/80 font-sans relative selection:bg-gold/20 selection:text-gold-glow flex flex-col items-center py-12 px-4 md:px-8">
