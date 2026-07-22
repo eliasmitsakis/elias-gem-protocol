@@ -776,7 +776,7 @@ sys.stderr = io.StringIO()
                 )}
               </button>
 
-              <div className="w-full h-64 overflow-y-auto border-l-2 border-gold/30 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
+              <div className="w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 border-gold/30 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
                 <pre className="text-sm md:text-base text-gold/80 leading-relaxed whitespace-pre-wrap word-break">
                   {typedCode}
                   {!showExecution && <span className="animate-pulse text-gold-glow">_</span>}
