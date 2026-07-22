@@ -10,11 +10,12 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Next.js dynamic metadata for SEO
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const { data: artifact } = await supabase
     .from('artifacts')
     .select('description, seed_of_truth, image_prompt')
-    .eq('id', params.id)
+    .eq('id', resolvedParams.id)
     .single();
 
   if (!artifact) {
@@ -38,12 +39,14 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-export default async function SharedArtifactPage({ params }: { params: { id: string } }) {
+export default async function SharedArtifactPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  
   // Fetch artifact from DB
   const { data: artifact, error } = await supabase
     .from('artifacts')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', resolvedParams.id)
     .single();
 
   if (error || !artifact) {
