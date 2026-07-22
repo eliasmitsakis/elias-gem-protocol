@@ -24,6 +24,7 @@ export const AethericImage = ({
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
+  const imgRef = React.useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setLoaded(false);
@@ -34,6 +35,12 @@ export const AethericImage = ({
   const currentSrc = (!noFallback && (useFallback || !imageUrl))
     ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
     : (imageUrl || null);
+
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete && !loaded && !hasError && currentSrc) {
+      setLoaded(true);
+    }
+  }, [currentSrc, loaded, hasError]);
 
   const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
 
@@ -65,6 +72,7 @@ export const AethericImage = ({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {!hasError && currentSrc && (
         <img
+          ref={imgRef}
           src={currentSrc}
           alt="Aetheric Vision"
           className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
