@@ -86,11 +86,6 @@ export const AethericImage = ({
           <span className="text-gold/20 text-2xl">✦</span>
         </div>
       )}
-      
-      {/* DEBUG OVERLAY */}
-      <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-green-400 text-[8px] p-1 z-50 break-all">
-        {currentSrc ? currentSrc : "null"}
-      </div>
     </div>
   );
 };
