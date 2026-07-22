@@ -184,7 +184,8 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any) 
     if (falImageUrl) {
       const imgRes = await fetch(falImageUrl);
       if (imgRes.ok) {
-        const buffer = await imgRes.arrayBuffer();
+        const arrayBuffer = await imgRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer); // Convert to Node.js Buffer for reliable Supabase upload
         const crypto = require('crypto');
         const promptHash = crypto.createHash('md5').update(prompt).digest('hex');
         const fileName = `${promptHash}.jpg`;

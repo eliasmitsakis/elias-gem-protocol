@@ -70,7 +70,9 @@ export const AethericImage = ({
           className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
           onError={() => {
-            if (!noFallback && !useFallback && imageUrl) {
+            if (!noFallback && !useFallback && !imageUrl) {
+              setUseFallback(true);
+            } else if (!noFallback && !useFallback && imageUrl && currentSrc === imageUrl) {
               setUseFallback(true);
             } else {
               setHasError(true);
