@@ -442,7 +442,7 @@ export default function CyberZenPortal() {
     }
   }, [session, authLoading]);
 
-  const saveToAkasha = async (execOutput: {stdout: string, stderr: string}, code: string, seed: string, img: string, desc: string, currentVibText: string) => {
+  const saveToAkasha = async (execOutput: {stdout: string, stderr: string}, code: string, seed: string, img: string, desc: string, currentVibText: string, recordId?: string, imageUrl?: string) => {
     // Hard guard: never save to Akasha during a history replay
     if (isReplayRef.current) return;
     try {
@@ -454,6 +454,8 @@ export default function CyberZenPortal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accessToken,
+          recordId,
+          imageUrl,
           vibrationText: currentVibText,
           description: desc,
           aethericCode: code,
@@ -468,7 +470,7 @@ export default function CyberZenPortal() {
     }
   };
 
-  const executePythonCode = async (code: string, seed: string, img: string, desc: string, currentVibText: string) => {
+  const executePythonCode = async (code: string, seed: string, img: string, desc: string, currentVibText: string, recordId?: string, imageUrl?: string) => {
     setShowExecution(true);
     setIsExecuting(true);
     setExecutionOutput({ stdout: '[!] Transmuting Python in Browser via WASM Edge Engine...', stderr: '' });
@@ -479,7 +481,7 @@ export default function CyberZenPortal() {
        execOut = { stdout: '', stderr: 'SYSTEM CORE FAILURE: The WASM Python Sandbox is not mounted yet. Wait a moment and try again.' };
        setExecutionOutput(execOut);
        setIsExecuting(false);
-       saveToAkasha(execOut, code, seed, img, desc, currentVibText);
+       saveToAkasha(execOut, code, seed, img, desc, currentVibText, recordId, imageUrl);
        return;
     }
 
@@ -509,7 +511,7 @@ sys.stderr = io.StringIO()
       setExecutionOutput(execOut);
     } finally {
       setIsExecuting(false);
-      saveToAkasha(execOut, code, seed, img, desc, currentVibText);
+      saveToAkasha(execOut, code, seed, img, desc, currentVibText, recordId, imageUrl);
     }
   };
 
@@ -577,12 +579,16 @@ sys.stderr = io.StringIO()
       setImagePrompt(data.imagePrompt);
       setDescription(data.description);
       
+      if (data.imageUrl) {
+        setCurrentImageUrl(data.imageUrl);
+      }
+      
       if (data.id) {
         setArtifactId(data.id);
       }
 
       startTypingEffect(data.aethericCode, () => {
-        executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText);
+        executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText, data.id, data.imageUrl);
         playChimeSound();
       });
     } catch (e) {

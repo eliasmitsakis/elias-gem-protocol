@@ -75,31 +75,38 @@ export async function POST(req: Request) {
             .eq('id', user.id);
         };
 
-        // Run AI generation
+        // Run AI text generation
         const aiResult = await runGeneration(vibrationText);
 
-        // 6. Save the artifact to the database so it can be shared
-        const { data: artifactData, error: artifactError } = await adminClient
-          .from('artifacts')
+        // Generate and upload image via Fal.ai
+        let imageUrl = null;
+        if (aiResult.imagePrompt && process.env.FAL_KEY) {
+           imageUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
+        }
+
+        // 6. Save the artifact to akashic_records so it can be shared and viewed in history
+        const { data: recordData, error: recordError } = await adminClient
+          .from('akashic_records')
           .insert({
             user_id: user.id,
+            vibrationtext: vibrationText,
             description: aiResult.description,
-            aetheric_code: aiResult.aethericCode,
-            seed_of_truth: aiResult.seedOfTruth,
-            image_prompt: aiResult.imagePrompt
-            // image_url is generated on the client side for now via Pollinations
+            aethericcode: aiResult.aethericCode,
+            seedoftruth: aiResult.seedOfTruth,
+            imageprompt: aiResult.imagePrompt,
+            image_url: imageUrl
           })
           .select('id')
           .single();
 
-        if (artifactError) {
-          console.error("Failed to save artifact:", artifactError);
+        if (recordError) {
+          console.error("Failed to save akashic record:", recordError);
         }
 
         // Deduct credit
         await deductCredit();
         
-        return NextResponse.json({ ...aiResult, id: artifactData?.id });
+        return NextResponse.json({ ...aiResult, imageUrl, id: recordData?.id });
       }
       // Admin path — skip credit check, go straight to generation
     }
@@ -107,8 +114,9 @@ export async function POST(req: Request) {
     // Non-Supabase path OR admin path — generate freely
     const aiResult = await runGeneration(vibrationText);
     
-    // For admins, we should also save the artifact so they can share it
-    let artifactId = null;
+    // For admins, we should also generate image, upload, and save so they can share it
+    let recordId = null;
+    let imageUrl = null;
     if (supabaseUrl && serviceRoleKey && accessToken) {
        const userClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
          global: { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -116,27 +124,92 @@ export async function POST(req: Request) {
        const { data: { user } } = await userClient.auth.getUser();
        if (user) {
          const adminClient = createClient(supabaseUrl, serviceRoleKey);
-         const { data: artifactData } = await adminClient
-            .from('artifacts')
+         if (aiResult.imagePrompt && process.env.FAL_KEY) {
+            imageUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
+         }
+         const { data: recordData } = await adminClient
+            .from('akashic_records')
             .insert({
               user_id: user.id,
+              vibrationtext: vibrationText,
               description: aiResult.description,
-              aetheric_code: aiResult.aethericCode,
-              seed_of_truth: aiResult.seedOfTruth,
-              image_prompt: aiResult.imagePrompt
+              aethericcode: aiResult.aethericCode,
+              seedoftruth: aiResult.seedOfTruth,
+              imageprompt: aiResult.imagePrompt,
+              image_url: imageUrl
             })
             .select('id')
             .single();
-         artifactId = artifactData?.id;
+         recordId = recordData?.id;
        }
     }
 
-    return NextResponse.json({ ...aiResult, id: artifactId });
+    return NextResponse.json({ ...aiResult, imageUrl, id: recordId });
 
   } catch (error: any) {
     console.error("Transmutation Error:", error);
     return NextResponse.json({ error: error.message || 'Failed to align vibration.' }, { status: 500 });
   }
+}
+
+// --- Image generation logic ---
+async function generateImageAndUpload(prompt: string, supabaseAdminClient: any) {
+  try {
+    const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
+    const styledPrompt = prompt + STYLE_SUFFIX;
+
+    const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${process.env.FAL_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: styledPrompt,
+        image_size: 'square_hd',
+        num_inference_steps: 4,
+        num_images: 1,
+        enable_safety_checker: false,
+      }),
+    });
+
+    if (!falRes.ok) {
+      console.error("Fal.ai image generation failed:", falRes.status, await falRes.text());
+      return null;
+    }
+
+    const falData = await falRes.json();
+    const falImageUrl = falData?.images?.[0]?.url;
+
+    if (falImageUrl) {
+      const imgRes = await fetch(falImageUrl);
+      if (imgRes.ok) {
+        const buffer = await imgRes.arrayBuffer();
+        const crypto = require('crypto');
+        const promptHash = crypto.createHash('md5').update(prompt).digest('hex');
+        const fileName = `${promptHash}.jpg`;
+
+        const { error: uploadError } = await supabaseAdminClient.storage
+          .from('akashic_visions')
+          .upload(fileName, buffer, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error("Supabase Storage Upload Error", uploadError);
+          return null;
+        }
+
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
+        return `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to generate/upload vision via Fal.ai", e);
+  }
+  return null;
 }
 
 // --- Core AI generation logic (extracted for reuse across paths) ---

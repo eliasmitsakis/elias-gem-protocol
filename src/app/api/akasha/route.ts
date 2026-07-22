@@ -110,7 +110,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { accessToken, ...record }: { accessToken?: string } & Omit<TransmutationRecord, 'id' | 'timestamp'> = body;
+    const { accessToken, recordId, imageUrl, ...record }: { accessToken?: string, recordId?: string, imageUrl?: string } & Omit<TransmutationRecord, 'id' | 'timestamp'> = body;
 
     // 1. SUPABASE CLOUD (Primary)
     if (isSupabaseConfigured && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -137,85 +137,49 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid or expired session. Please sign in again.' }, { status: 401 });
       }
 
-      const { data, error } = await userSupabase
-        .from('akashic_records')
-        .insert([
-           {
-             user_id: user.id,
-             vibrationtext: record.vibrationText,
-             description: record.description || null,
-             aethericcode: record.aethericCode,
-             seedoftruth: record.seedOfTruth,
-             imageprompt: record.imagePrompt,
-             executionoutput: record.executionOutput
-           }
-        ]);
-       
-       if (error) {
-          console.error("Supabase POST Error", error);
-          throw error;
-       }
+      let dbError;
+      let dbData;
 
-       // Generate and upload image to Supabase Storage using Fal.ai Flux.1 Schnell
-       if (record.imagePrompt && process.env.FAL_KEY) {
-         try {
-           // Append artistic style modifiers — consistent with /api/vision
-           const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
-           const styledPrompt = record.imagePrompt + STYLE_SUFFIX;
-
-           // 1. Generate image via Fal.ai Flux.1 Schnell (square_hd = 1344×1344px)
-           const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
-             method: 'POST',
-             headers: {
-               'Authorization': `Key ${process.env.FAL_KEY}`,
-               'Content-Type': 'application/json',
-             },
-             body: JSON.stringify({
-               prompt: styledPrompt,
-               image_size: 'square_hd',
-               num_inference_steps: 4,
-               num_images: 1,
-               enable_safety_checker: false,
-             }),
-           });
-
-           if (falRes.ok) {
-             const falData = await falRes.json();
-             const falImageUrl = falData?.images?.[0]?.url;
-
-             if (falImageUrl) {
-               // 2. Fetch the image bytes from Fal CDN
-               const imgRes = await fetch(falImageUrl);
-               if (imgRes.ok) {
-                 const buffer = await imgRes.arrayBuffer();
-
-                 const crypto = require('crypto');
-                 const promptHash = crypto.createHash('md5').update(record.imagePrompt).digest('hex');
-                 const fileName = `${promptHash}.jpg`;
-
-                 // 3. Upload to Supabase Storage
-                 const { error: uploadError } = await userSupabase.storage
-                   .from('akashic_visions')
-                   .upload(fileName, buffer, {
-                     contentType: 'image/jpeg',
-                     upsert: true
-                   });
-
-                 if (uploadError) {
-                   console.error("Supabase Storage Upload Error", uploadError);
-                 }
-               }
+      if (recordId) {
+        // Update existing record created by /api/transmute
+        const { data, error } = await userSupabase
+          .from('akashic_records')
+          .update({
+            executionoutput: record.executionOutput
+          })
+          .eq('id', recordId)
+          .eq('user_id', user.id);
+        dbError = error;
+        dbData = data;
+      } else {
+        // Fallback insert if no recordId was provided
+        const { data, error } = await userSupabase
+          .from('akashic_records')
+          .insert([
+             {
+               user_id: user.id,
+               vibrationtext: record.vibrationText,
+               description: record.description || null,
+               aethericcode: record.aethericCode,
+               seedoftruth: record.seedOfTruth,
+               imageprompt: record.imagePrompt,
+               image_url: imageUrl,
+               executionoutput: record.executionOutput
              }
-           } else {
-             const errText = await falRes.text();
-             console.error("Fal.ai image generation failed:", falRes.status, errText);
-           }
-         } catch (e) {
-           console.error("Failed to generate/upload vision via Fal.ai", e);
-         }
-       }
+          ]);
+        dbError = error;
+        dbData = data;
+      }
+       
+      if (dbError) {
+         console.error("Supabase POST Error", dbError);
+         throw dbError;
+      }
 
-       return NextResponse.json({ message: 'Record written to Supabase successfully.', record: data });
+       // Fal.ai image generation has been moved to /api/transmute to avoid duplicate calls.
+
+
+       return NextResponse.json({ message: 'Record written to Supabase successfully.', record: dbData });
     }
     
     // 2. LOCAL JSON FALLBACK (no auth gate in local mode)
@@ -226,10 +190,11 @@ export async function POST(req: Request) {
       records = JSON.parse(fileData);
     } catch(e) {}
 
-    const newRecord: TransmutationRecord = {
+    const newRecord: TransmutationRecord & { imageUrl?: string } = {
       ...record,
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString()
+      id: recordId || crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      imageUrl: imageUrl
     };
 
     records.push(newRecord);
