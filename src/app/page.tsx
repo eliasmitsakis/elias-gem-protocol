@@ -104,29 +104,153 @@ const AethericImage = ({
   );
 };
 
-// --- Google Sign-In Button Component ---
-const GoogleSignInButton = ({ onClick }: { onClick: () => void }) => (
+// ── Provider config ──────────────────────────────────────────────────────────
+const PROVIDERS = [
+  {
+    id: 'google' as const,
+    label: 'Google',
+    color: '#4285F4',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'facebook' as const,
+    label: 'Facebook',
+    color: '#1877F2',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="#1877F2">
+        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'azure' as const,
+    label: 'Microsoft',
+    color: '#00A4EF',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
+        <path d="M11.4 24H0l8.267-14.4L4.8 3.6 20.4 0 24 24H11.4z" fill="#F25022"/>
+        <path d="M11.4 24H0V12h11.4V24z" fill="#00A4EF"/>
+        <path d="M24 24H11.4V12H24V24z" fill="#7FBA00"/>
+        <path d="M11.4 12H0V0h11.4V12z" fill="#FFB900"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'github' as const,
+    label: 'GitHub',
+    color: '#ffffff',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'discord' as const,
+    label: 'Discord',
+    color: '#5865F2',
+    icon: (
+      <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="#5865F2">
+        <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963a.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+      </svg>
+    ),
+  },
+];
+
+// ── Sign-In Modal ─────────────────────────────────────────────────────────────
+const SignInModal = ({
+  onSignIn,
+  onClose,
+}: {
+  onSignIn: (provider: 'google' | 'facebook' | 'azure' | 'github' | 'discord') => void;
+  onClose: () => void;
+}) => {
+  // Close on ESC
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <div
+        className="relative z-10 w-full max-w-sm bg-black/80 border border-gold/30 rounded-2xl shadow-[0_0_60px_rgba(251,199,26,0.15)] backdrop-blur-xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Gold top bar */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+
+        <div className="px-8 py-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-gold/50 font-mono mb-2">⬡ Elias &amp; Gem Protocol</p>
+            <h2 className="text-xl font-bold text-gold-glow font-mono tracking-widest uppercase">Enter the Aether</h2>
+            <p className="text-gold/40 text-xs mt-2 font-mono">Choose your access vector</p>
+          </div>
+
+          {/* Provider buttons */}
+          <div className="flex flex-col gap-3">
+            {PROVIDERS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onSignIn(p.id)}
+                className="group flex items-center gap-4 w-full px-5 py-3.5 rounded-xl bg-white/5 border border-white/10 hover:border-gold/40 hover:bg-white/10 hover:shadow-[0_0_20px_rgba(251,199,26,0.1)] transition-all duration-250 text-left"
+              >
+                <span className="opacity-90 group-hover:opacity-100 transition-opacity">{p.icon}</span>
+                <span className="text-sm text-gold/70 group-hover:text-gold font-mono tracking-wider transition-colors">
+                  Continue with {p.label}
+                </span>
+                <span className="ml-auto text-gold/20 group-hover:text-gold/60 text-xs transition-colors">→</span>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-center text-gold/20 text-[10px] font-mono mt-6 leading-relaxed">
+            Free to join. 3 transmutations included.<br/>
+            No dark patterns. Just vibration.
+          </p>
+        </div>
+
+        {/* Gold bottom bar */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+      </div>
+    </div>
+  );
+};
+
+// ── Cyberpunk SIGN IN button (logged-out state) ───────────────────────────────
+const SignInButton = ({ onClick }: { onClick: () => void }) => (
   <button
-    id="google-signin-btn"
+    id="sign-in-btn"
     onClick={onClick}
-    className="flex items-center gap-2 px-4 py-2 bg-black/60 border border-gold/40 rounded-full text-gold/80 text-xs font-mono uppercase tracking-widest hover:bg-gold/10 hover:border-gold hover:text-gold hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all duration-300"
-    title="Sign in with Google"
+    className="flex items-center gap-2 px-4 py-2 bg-black/60 border border-gold/50 rounded font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80 hover:bg-gold/10 hover:border-gold hover:text-gold hover:shadow-[0_0_15px_rgba(251,199,26,0.35)] transition-all duration-300"
   >
-    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
+    <span className="text-gold/50 text-xs">▶</span>
     Sign In
   </button>
 );
 
-// --- User Avatar / Sign-Out Component ---
-const UserMenu = ({ user, onSignOut }: { user: any; onSignOut: () => void }) => {
+// ── User Avatar + dropdown with credits ───────────────────────────────────────
+const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | null; onSignOut: () => void }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const avatarUrl = user?.user_metadata?.avatar_url;
   const displayName = user?.user_metadata?.full_name || user?.email || 'Aetheric Adept';
+  const isAdmin = ['elias.gemprotocol@gmail.com', 'eliasmitsakis@gmail.com'].includes(user?.email ?? '');
 
   return (
     <div className="relative">
@@ -151,26 +275,52 @@ const UserMenu = ({ user, onSignOut }: { user: any; onSignOut: () => void }) => 
       </button>
 
       {menuOpen && (
-        <div className="absolute right-0 top-full mt-2 w-48 bg-obsidian/95 border border-gold/20 rounded-lg shadow-[0_8px_30px_rgba(0,0,0,0.8)] z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gold/10">
-            <p className="text-gold/80 text-xs font-mono truncate">{displayName}</p>
-            <p className="text-gold/40 text-[10px] truncate">{user?.email}</p>
+        <>
+          {/* Click-outside backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-56 bg-black/90 border border-gold/20 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
+            {/* Gold top accent */}
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+
+            {/* User info */}
+            <div className="px-4 py-3 border-b border-gold/10">
+              <p className="text-gold/80 text-xs font-mono truncate">{displayName}</p>
+              <p className="text-gold/40 text-[10px] truncate">{user?.email}</p>
+            </div>
+
+            {/* Credits display */}
+            <div className="px-4 py-3 border-b border-gold/10 flex items-center justify-between">
+              <span className="text-gold/50 text-[10px] font-mono uppercase tracking-wider">Transmutations</span>
+              <span className={`text-sm font-bold font-mono ${
+                isAdmin ? 'text-nebula' :
+                credits === null ? 'text-gold/30' :
+                credits <= 0 ? 'text-red-400' :
+                credits <= 1 ? 'text-yellow-400' :
+                'text-gold'
+              }`}>
+                {isAdmin ? '∞' : credits === null ? '…' : credits}
+              </span>
+            </div>
+
+            {/* Sign out */}
+            <button
+              id="sign-out-btn"
+              onClick={() => { setMenuOpen(false); onSignOut(); }}
+              className="w-full text-left px-4 py-3 text-xs text-nebula/70 font-mono hover:bg-nebula/10 hover:text-nebula transition-colors duration-200"
+            >
+              ⊗ Sign Out
+            </button>
           </div>
-          <button
-            id="sign-out-btn"
-            onClick={() => { setMenuOpen(false); onSignOut(); }}
-            className="w-full text-left px-4 py-3 text-xs text-nebula/80 font-mono hover:bg-nebula/10 hover:text-nebula transition-colors duration-200"
-          >
-            ⊗ Sign Out
-          </button>
-        </div>
+        </>
       )}
     </div>
   );
 };
 
+
 export default function CyberZenPortal() {
-  const { user, session, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, session, loading: authLoading, credits, signInWithProvider, signOut, refreshCredits } = useAuth();
+  const [showSignInModal, setShowSignInModal] = useState(false);
 
   const [particles, setParticles] = useState<number[]>([]);
   const [vibrationText, setVibrationText] = useState('');
@@ -555,14 +705,22 @@ sys.stderr = io.StringIO()
         ></div>
       ))}
 
+      {/* Sign-In Modal */}
+      {showSignInModal && (
+        <SignInModal
+          onSignIn={(provider) => { signInWithProvider(provider); setShowSignInModal(false); }}
+          onClose={() => setShowSignInModal(false)}
+        />
+      )}
+
       {/* Top-right controls: Auth + Scroll Toggle */}
       <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
         {/* Auth Controls */}
         {!authLoading && (
           user ? (
-            <UserMenu user={user} onSignOut={signOut} />
+            <UserMenu user={user} credits={credits} onSignOut={signOut} />
           ) : (
-            <GoogleSignInButton onClick={signInWithGoogle} />
+            <SignInButton onClick={() => setShowSignInModal(true)} />
           )
         )}
 
