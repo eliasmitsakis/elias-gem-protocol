@@ -68,15 +68,7 @@ export async function GET(req: Request) {
         throw error;
       }
 
-      const crypto = require('crypto');
       const transformedData = (data || []).map((row: any) => {
-        let imageUrl = null;
-        if (row.imageprompt && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-          const promptHash = crypto.createHash('md5').update(row.imageprompt).digest('hex');
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL.endsWith('/') ? process.env.NEXT_PUBLIC_SUPABASE_URL.slice(0, -1) : process.env.NEXT_PUBLIC_SUPABASE_URL;
-          imageUrl = `${supabaseUrl}/storage/v1/object/public/akashic_visions/${promptHash}.jpg`;
-        }
-
         return {
           id: row.id,
           timestamp: row.created_at,
@@ -85,7 +77,7 @@ export async function GET(req: Request) {
           aethericCode: row.aethericcode,
           seedOfTruth: row.seedoftruth,
           imagePrompt: row.imageprompt,
-          imageUrl: imageUrl,
+          imageUrl: row.image_url,
           executionOutput: row.executionoutput
         };
       });

@@ -348,10 +348,10 @@ export default function CyberZenPortal() {
         ambientAudioRef.current.pause();
         setIsAmbientPlaying(false);
       } else {
-        ambientAudioRef.current.volume = 0.5;
+        ambientAudioRef.current.volume = 0.2;
         ambientAudioRef.current.play()
           .then(() => setIsAmbientPlaying(true))
-          .catch(e => console.log("Audio play failed:", e));
+          .catch(e => console.error("Audio play failed", e));
       }
     }
   };
@@ -605,7 +605,7 @@ sys.stderr = io.StringIO()
     <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
 
-      <audio ref={ambientAudioRef} loop src="https://actions.google.com/sounds/v1/weather/rain_on_roof.ogg" />
+      <audio ref={ambientAudioRef} loop src="/audio/cyberzen-theme.mp3" />
       
       <div className="cyber-zen-bg"></div>
 
