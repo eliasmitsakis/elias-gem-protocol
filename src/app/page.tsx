@@ -609,14 +609,26 @@ sys.stderr = io.StringIO()
       
       <div className="cyber-zen-bg"></div>
 
-      {/* Ambient Audio Toggle */}
-      <button 
-        onClick={toggleAmbient}
-        className={`fixed top-6 left-6 z-50 p-3 rounded-full border transition-all ${isAmbientPlaying ? 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow' : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'}`}
-        title="Toggle Ambient Soundscape"
-      >
-        🎧
-      </button>
+      {/* Top-left controls: Audio + Auth */}
+      <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
+        {/* Ambient Audio Toggle */}
+        <button 
+          onClick={toggleAmbient}
+          className={`p-3 rounded-full border transition-all ${isAmbientPlaying ? 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow' : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'}`}
+          title="Toggle Ambient Soundscape"
+        >
+          🎧
+        </button>
+
+        {/* Auth Controls */}
+        {!authLoading && (
+          user ? (
+            <UserMenu user={user} credits={credits} onSignOut={signOut} />
+          ) : (
+            <SignInButton onClick={() => setShowSignInModal(true)} />
+          )
+        )}
+      </div>
       
       {particles.map((leftPos, i) => (
         <div
@@ -638,17 +650,8 @@ sys.stderr = io.StringIO()
         />
       )}
 
-      {/* Top-right controls: Auth + Scroll Toggle */}
+      {/* Top-right controls: Scroll Toggle */}
       <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
-        {/* Auth Controls */}
-        {!authLoading && (
-          user ? (
-            <UserMenu user={user} credits={credits} onSignOut={signOut} />
-          ) : (
-            <SignInButton onClick={() => setShowSignInModal(true)} />
-          )
-        )}
-
         {/* Floating Toggle Button for The Akashic Scroll */}
         <button 
           onClick={() => setIsAkashaOpen(!isAkashaOpen)}
