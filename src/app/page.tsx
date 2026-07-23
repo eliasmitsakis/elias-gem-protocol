@@ -187,7 +187,7 @@ const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | n
         <>
           {/* Click-outside backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-56 bg-black/90 border border-gold/20 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
+          <div className="absolute left-0 top-full mt-2 w-56 bg-black/90 border border-gold/20 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
             {/* Gold top accent */}
             <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
 
