@@ -240,9 +240,9 @@ async function runGeneration(vibrationText: string) {
   4. The "imagePrompt" must remain in English, as AI image models understand English best.
 
   Output Format: Strict JSON ONLY with these exact keys:
-  1. "description": A poetic description of the vibe (weaving layers 1, 2, and 3).
+  1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
   2. "aethericCode": A functional Python snippet (layer 4) reflecting the vibe.
-  3. "seedOfTruth": A deep, short quote capturing the core essence.
+  3. "seedOfTruth": A deep, punchy quote capturing the core essence. STRICT LIMIT: Maximum 15 words.
   4. "imagePrompt": A detailed, cinematic prompt (layer 5) for an AI Image Generator to visualize the vibe in English.
   
   Do NOT include any markdown code blocks wrapping the JSON (no \`\`\`json). Just output the raw JSON object.
