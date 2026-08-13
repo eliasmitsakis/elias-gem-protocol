@@ -83,10 +83,10 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
       {/* Main Content Layout — single centered column */}
       <div className="w-full flex flex-col items-center relative z-10 max-w-xl">
 
-        {/* Image prompt label — above the card, outside the border */}
-        {artifact.imageprompt && (
+        {/* Vibration text label — above the card, outside the border */}
+        {artifact.vibrationtext && (
           <p className="w-full mb-3 text-[11px] font-mono text-gold/40 tracking-widest uppercase leading-relaxed text-left px-1">
-            ✦ {artifact.imageprompt}
+            ✦ {artifact.vibrationtext}
           </p>
         )}
 
