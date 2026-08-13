@@ -53,8 +53,8 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
     notFound();
   }
 
-  // Use locked image_url from DB, or fallback to our own /api/vision (Fal.ai) for older records
-  const imageUrl = artifact.image_url || `/api/vision?prompt=${encodeURIComponent(artifact.imageprompt)}&width=800&height=800`;
+  // Use the locked image_url from DB only — never regenerate
+  const imageUrl = artifact.image_url || null;
 
   return (
     <div className="min-h-screen bg-[#050505] text-gold/80 font-sans relative selection:bg-gold/20 selection:text-gold-glow flex flex-col items-center py-12 px-4 md:px-8">
@@ -95,28 +95,34 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
           {/* Subtle background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
 
-          {artifact.imageprompt && (
-            <div className="group relative w-full aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
-              <AethericImage 
-                prompt={artifact.imageprompt} 
-                imageUrl={imageUrl} 
-                width={800} 
-                height={800} 
-                className="absolute inset-0 z-0" 
-                noFallback={false} 
+          <div className="group relative w-full aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+            {imageUrl ? (
+              <AethericImage
+                prompt={artifact.imageprompt || ''}
+                imageUrl={imageUrl}
+                width={800}
+                height={800}
+                className="absolute inset-0 z-0"
+                noFallback={true}
               />
-              <div className="scanline"></div>
+            ) : (
+              /* No stored image — show static placeholder, never regenerate */
+              <div className="absolute inset-0 z-0 flex items-center justify-center bg-black/60">
+                <span className="text-gold/20 text-5xl select-none">✦</span>
+              </div>
+            )}
+            <div className="scanline"></div>
 
-              {/* Seed of Truth Overlay */}
-              {artifact.seedoftruth && (
-                <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
-                  <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
-                    &ldquo;{artifact.seedoftruth}&rdquo;
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            {/* Seed of Truth Overlay */}
+            {artifact.seedoftruth && (
+              <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
+                <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
+                  &ldquo;{artifact.seedoftruth}&rdquo;
+                </p>
+              </div>
+            )}
+          </div>
+
 
           {/* Aetheric Description */}
           {artifact.description && (
