@@ -50,13 +50,13 @@ export async function POST(req: Request) {
           console.error('Credit check error:', profileError);
           // If the profile row doesn't exist yet, create it with default 3 credits
           if (profileError.code === 'PGRST116') {
-            await adminClient.from('profiles').insert({ id: user.id, credits: 3 });
+            await adminClient.from('profiles').insert({ id: user.id, credits: 5 });
           } else {
             return NextResponse.json({ error: 'Failed to verify your credits.' }, { status: 500 });
           }
         }
 
-        const currentCredits = profile?.credits ?? 3;
+        const currentCredits = profile?.credits ?? 5;
 
         // 4. Gate: block if out of credits
         if (currentCredits <= 0) {
