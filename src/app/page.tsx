@@ -522,7 +522,7 @@ export default function CyberZenPortal() {
         fetchAkashicRecords(true);
         // Refresh credits silently if possible
         if (session?.user?.id) {
-          fetchCredits(session.user.id);
+          refreshCredits();
         }
       }
     } catch (e) {
@@ -682,6 +682,7 @@ sys.stderr = io.StringIO()
     // Set the ref synchronously FIRST — guards saveToAkasha and any callbacks
     isReplayRef.current = true;
     setIsReplay(true);
+    setIsCurrentDiary(record.is_diary === true);
 
     setVibrationText(record.vibrationText);
     setAethericCode(record.aethericCode);
@@ -703,6 +704,7 @@ sys.stderr = io.StringIO()
     // Mark as fresh generation — re-enable saving and generation fallbacks
     isReplayRef.current = false;
     setIsReplay(false);
+    setIsCurrentDiary(false);
     setIsTransmuting(true);
     setShowExecution(false);
     setSeedOfTruth('');
