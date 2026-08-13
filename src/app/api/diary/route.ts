@@ -67,9 +67,17 @@ export async function POST(req: Request) {
     const { count, error: countError } = await adminClient
       .from('akashic_records')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .neq('is_diary', true); // Only count actual transmutations
 
     if (countError) throw countError;
+
+    if (!count || count === 0) {
+      return NextResponse.json(
+        { error: 'Your Akashic Records are empty. You must transmute your state at least once before you can analyze your journey.' },
+        { status: 400 }
+      );
+    }
 
     // 2. Fetch last 10 records
     const { data: recentRecords, error: fetchError } = await adminClient

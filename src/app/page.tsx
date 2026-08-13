@@ -498,7 +498,9 @@ export default function CyberZenPortal() {
 
       const data = await res.json();
       if (!res.ok) {
-        setAethericCode(`# Error: ${data.error || "Failed to generate diary."}`);
+        const errorMsg = `# Error: ${data.error || "Failed to generate diary."}`;
+        setAethericCode(errorMsg);
+        startTypingEffect(errorMsg);
         setIsCurrentDiary(false);
       } else {
         setAethericCode(data.aethericCode);
@@ -727,11 +729,14 @@ sys.stderr = io.StringIO()
       const data = await response.json();
       
       if (!response.ok) {
+        let errorMsg = '';
         if (response.status === 403) {
-          setAethericCode(data.error);
+          errorMsg = data.error;
         } else {
-          setAethericCode(`# Error: ${data.error || 'Failed to align vibration'}`);
+          errorMsg = `# Error: ${data.error || 'Failed to align vibration'}`;
         }
+        setAethericCode(errorMsg);
+        startTypingEffect(errorMsg);
         setSeedOfTruth('');
         setImagePrompt('');
         setDescription('');
