@@ -213,7 +213,7 @@ const SignInButton = ({ onClick }: { onClick: () => void }) => (
 const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | null; onSignOut: () => void }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const avatarUrl = user?.user_metadata?.avatar_url;
-  const displayName = user?.user_metadata?.full_name || user?.email || 'Aetheric Adept';
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Aetheric Adept';
   const isAdmin = ['elias.gemprotocol@gmail.com', 'eliasmitsakis@gmail.com'].includes(user?.email ?? '');
 
   return (
@@ -972,7 +972,7 @@ sys.stderr = io.StringIO()
             )}
             {!authLoading && user && (
               <p className="text-gold/40 text-xs italic">
-                ✓ Signed in as {user.user_metadata?.full_name?.split(' ')[0] || 'Adept'}
+                ✓ Signed in as {user.user_metadata?.full_name?.split(' ')[0] || user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'Adept'}
               </p>
             )}
             {authLoading && <span />}

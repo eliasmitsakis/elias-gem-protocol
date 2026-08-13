@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options: {
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
         ...(provider === 'azure' ? { 
-          scopes: 'email',
+          scopes: 'email profile',
           queryParams: { prompt: 'select_account' } 
         } : {}),
       },
