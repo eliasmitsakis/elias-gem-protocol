@@ -240,6 +240,27 @@ export default function CyberZenPortal() {
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // Copy link feedback state (stores the id of the record whose link was just copied)
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyRecordLink = (recordId: string) => {
+    const url = `https://elias-gem-protocol.vercel.app/artifact/${recordId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(recordId);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(() => {
+      // Fallback for older browsers
+      const el = document.createElement('textarea');
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopiedId(recordId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
   // Response states
   const [aethericCode, setAethericCode] = useState(`class VibrationTransmutation(Awareness):\n    def __init__(self):\n        self.state = "Analyzing Flow..."\n        \n    def transmute(self, frequency):\n        return self._align(frequency)`);
   const [seedOfTruth, setSeedOfTruth] = useState('');
@@ -681,7 +702,25 @@ sys.stderr = io.StringIO()
                   return (
                     <div key={record.id} className="relative pl-6 py-4 pr-4 bg-black/40 border border-gold/20 rounded-lg">
                       <div className="absolute -left-1.5 top-6 w-3 h-3 bg-obsidian border border-gold/60 rounded-full"></div>
-                      <p className="text-xs text-nebula/60 mb-2">{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-nebula/60">{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
+                        <button
+                          onClick={() => copyRecordLink(record.id)}
+                          title="Copy share link"
+                          className="ml-2 flex items-center justify-center w-6 h-6 rounded transition-all duration-200 hover:bg-gold/10 group"
+                        >
+                          {copiedId === record.id ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-nebula/40 group-hover:text-gold/70 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                       <p className="font-bold text-gold-glow mb-3">"{record.vibrationText}"</p>
                       
                       {record.description && (
