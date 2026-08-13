@@ -73,6 +73,61 @@ const PROVIDERS = [
   },
 ];
 
+// ── Diary Modal ───────────────────────────────────────────────────────────────
+const DiaryModal = ({
+  data,
+  onClose,
+}: {
+  data: { assessment: string; imagePrompt: string; imageUrl: string } | null;
+  onClose: () => void;
+}) => {
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  if (!data) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+      <div
+        className="relative z-10 w-full max-w-2xl bg-[#0a0a0a] border border-gold/40 shadow-[0_0_40px_rgba(251,199,26,0.15)] rounded overflow-hidden flex flex-col md:flex-row"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gold/60 hover:text-gold z-20 bg-black/50 rounded-full w-8 h-8 flex items-center justify-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        <div className="w-full md:w-1/2 relative aspect-square md:aspect-auto">
+          {data.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.imageUrl} alt="Diary of a Madman" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-obsidian border-r border-gold/10">
+              <p className="text-nebula text-xs font-mono animate-pulse">✦ Generating visual...</p>
+            </div>
+          )}
+        </div>
+        <div className="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-center bg-[linear-gradient(to_bottom,rgba(251,199,26,0.05),transparent)]">
+          <h3 className="text-xl md:text-2xl font-bold text-gold-glow mb-4 font-mono uppercase tracking-widest border-b border-gold/20 pb-2">Diary of a Madman</h3>
+          <p className="text-gray-300 text-sm leading-relaxed mb-6 italic">{data.assessment}</p>
+          <div className="mt-auto">
+            <p className="text-[10px] text-nebula/50 uppercase tracking-widest font-mono mb-1">Generated Visual Prompt</p>
+            <p className="text-xs text-nebula/80 font-mono overflow-y-auto max-h-24 pr-2">{data.imagePrompt}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Sign-In Modal ─────────────────────────────────────────────────────────────
 const SignInModal = ({
   onSignIn,
@@ -284,6 +339,11 @@ export default function CyberZenPortal() {
   const [isAkashaOpen, setIsAkashaOpen] = useState(false);
   const [akashaRecords, setAkashaRecords] = useState<any[]>([]);
 
+  // Diary of a Madman States
+  const [showDiaryModal, setShowDiaryModal] = useState(false);
+  const [diaryLoading, setDiaryLoading] = useState(false);
+  const [diaryData, setDiaryData] = useState<{ assessment: string; imagePrompt: string; imageUrl: string } | null>(null);
+
   // Pyodide State
   const [pyodideReady, setPyodideReady] = useState(false);
   const [loadingPyodide, setLoadingPyodide] = useState(true);
@@ -406,6 +466,48 @@ export default function CyberZenPortal() {
         console.error("Failed to load Pyodide (WASM Python Engine)", e);
     } finally {
         setLoadingPyodide(false);
+    }
+  };
+
+  const generateDiary = async () => {
+    try {
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        alert("Authentication required for Diary of a Madman.");
+        return;
+      }
+      setDiaryLoading(true);
+      setShowDiaryModal(true);
+      setDiaryData(null);
+
+      const res = await fetch('/api/diary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to generate diary.");
+        setShowDiaryModal(false);
+      } else {
+        setDiaryData({
+          assessment: data.assessment,
+          imagePrompt: data.imagePrompt,
+          imageUrl: data.imageUrl
+        });
+        fetchAkashicRecords(true);
+        // Refresh credits silently if possible (or user sees it next load)
+        if (session?.user?.id) {
+          fetchCredits(session.user.id);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error generating diary.");
+      setShowDiaryModal(false);
+    } finally {
+      setDiaryLoading(false);
     }
   };
 
@@ -688,6 +790,14 @@ sys.stderr = io.StringIO()
         />
       )}
 
+      {/* Diary Modal */}
+      {showDiaryModal && (
+        <DiaryModal
+          data={diaryData}
+          onClose={() => setShowDiaryModal(false)}
+        />
+      )}
+
       {/* Top-right controls: Scroll Toggle */}
       <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
         {/* Floating Toggle Button for The Akashic Scroll */}
@@ -708,7 +818,17 @@ sys.stderr = io.StringIO()
         <div className="p-6 relative text-gold/80 font-mono text-sm">
            <div className="absolute top-16 bottom-0 left-[1.5rem] w-px bg-gold/10 shadow-[0_0_4px_rgba(255,215,0,0.4)] z-0"></div>
 
-           <h2 className="text-xl font-bold mb-8 text-gold-glow sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20">The Aetheric Scroll</h2>
+           <div className="flex items-center justify-between sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20 mb-8 border-b border-gold/10">
+             <h2 className="text-xl font-bold text-gold-glow">The Aetheric Scroll</h2>
+             <button
+               onClick={generateDiary}
+               disabled={diaryLoading}
+               className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-400 hover:border-purple-500 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
+               title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
+             >
+               {diaryLoading ? 'Analyzing...' : '👁️ Diary'}
+             </button>
+           </div>
            
            <div className="flex flex-col gap-8 relative z-10">
               {akashaRecords.length === 0 ? (
@@ -717,10 +837,10 @@ sys.stderr = io.StringIO()
                 akashaRecords.map((record) => {
                   const timestampStr = record.created_at || record.timestamp;
                   return (
-                    <div key={record.id} className="relative pl-6 py-4 pr-4 bg-black/40 border border-gold/20 rounded-lg">
-                      <div className="absolute -left-1.5 top-6 w-3 h-3 bg-obsidian border border-gold/60 rounded-full"></div>
+                    <div key={record.id} className={`relative pl-6 py-4 pr-4 border rounded-lg ${record.is_diary ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/40 border-gold/20'}`}>
+                      <div className={`absolute -left-1.5 top-6 w-3 h-3 rounded-full border ${record.is_diary ? 'bg-purple-950 border-purple-500' : 'bg-obsidian border-gold/60'}`}></div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-nebula/60">{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
+                        <p className={`text-xs ${record.is_diary ? 'text-purple-300/80' : 'text-nebula/60'}`}>{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
                         <div className="relative flex items-center">
                           {/* Inline tooltip */}
                           <div
@@ -741,14 +861,14 @@ sys.stderr = io.StringIO()
                           <button
                             onClick={() => copyRecordLink(record.id)}
                             title="Copy share link"
-                            className="flex items-center justify-center w-6 h-6 rounded transition-all duration-200 hover:bg-gold/10 group"
+                            className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-200 group ${record.is_diary ? 'hover:bg-purple-500/20' : 'hover:bg-gold/10'}`}
                           >
                             {copiedId === record.id ? (
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
                               </svg>
                             ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-nebula/40 group-hover:text-gold/70 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-colors ${record.is_diary ? 'text-purple-300/50 group-hover:text-purple-400' : 'text-nebula/40 group-hover:text-gold/70'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                               </svg>
@@ -756,16 +876,17 @@ sys.stderr = io.StringIO()
                           </button>
                         </div>
                       </div>
-                      <p className="font-bold text-gold-glow mb-3">"{record.vibrationText}"</p>
+                      {record.is_diary && <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">👁️ Diary of a Madman</p>}
+                      <p className={`font-bold mb-3 ${record.is_diary ? 'text-purple-200' : 'text-gold-glow'}`}>"{record.vibrationText}"</p>
                       
                       {record.description && (
-                        <div className="bg-obsidian/40 border-l-2 border-gold/30 p-3 mb-3 rounded-r text-sm font-serif italic text-gold/80 leading-relaxed">
+                        <div className={`border-l-2 p-3 mb-3 rounded-r text-sm font-serif italic leading-relaxed ${record.is_diary ? 'bg-purple-900/10 border-purple-500/50 text-purple-200/90' : 'bg-obsidian/40 border-gold/30 text-gold/80'}`}>
                           {record.description}
                         </div>
                       )}
                       
-                      <div className="bg-black/50 border border-gold/10 p-3 rounded text-xs italic opacity-90 break-words mb-3">
-                        👁️ "{record.seedOfTruth}"
+                      <div className={`p-3 rounded text-xs italic opacity-90 break-words mb-3 ${record.is_diary ? 'bg-purple-950/40 border border-purple-500/20 text-purple-100' : 'bg-black/50 border border-gold/10'}`}>
+                        {record.is_diary ? '🧠' : '👁️'} "{record.seedOfTruth}"
                       </div>
                       
                       {record.imagePrompt && (

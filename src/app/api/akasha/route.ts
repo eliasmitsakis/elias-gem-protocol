@@ -19,6 +19,7 @@ export interface TransmutationRecord {
     stdout: string;
     stderr: string;
   };
+  is_diary?: boolean;
 }
 
 const ensureDataFile = () => {
@@ -78,7 +79,8 @@ export async function GET(req: Request) {
           seedOfTruth: row.seedoftruth,
           imagePrompt: row.imageprompt,
           imageUrl: row.image_url,
-          executionOutput: row.executionoutput
+          executionOutput: row.executionoutput,
+          is_diary: row.is_diary || false
         };
       });
 
