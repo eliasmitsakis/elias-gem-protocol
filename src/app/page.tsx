@@ -630,22 +630,6 @@ sys.stderr = io.StringIO()
       
       <div className="cyber-zen-bg"></div>
 
-      {/* Link Copied Toast */}
-      <div
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none"
-        style={{
-          opacity: copiedId ? 1 : 0,
-          transform: `translateX(-50%) translateY(${copiedId ? '0px' : '12px'})`,
-          transition: 'opacity 0.2s ease, transform 0.2s ease',
-        }}
-      >
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-green-400/40 backdrop-blur-sm shadow-lg shadow-black/50">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          <span className="text-xs font-mono tracking-widest text-green-400">Link copied!</span>
-        </div>
-      </div>
 
       {/* Top-left controls: Audio + Auth */}
       <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
@@ -721,22 +705,40 @@ sys.stderr = io.StringIO()
                       <div className="absolute -left-1.5 top-6 w-3 h-3 bg-obsidian border border-gold/60 rounded-full"></div>
                       <div className="flex items-center justify-between mb-2">
                         <p className="text-xs text-nebula/60">{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
-                        <button
-                          onClick={() => copyRecordLink(record.id)}
-                          title="Copy share link"
-                          className="ml-2 flex items-center justify-center w-6 h-6 rounded transition-all duration-200 hover:bg-gold/10 group"
-                        >
-                          {copiedId === record.id ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-nebula/40 group-hover:text-gold/70 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
-                          )}
-                        </button>
+                        <div className="relative flex items-center">
+                          {/* Inline tooltip */}
+                          <div
+                            className="absolute right-full mr-2 pointer-events-none whitespace-nowrap"
+                            style={{
+                              opacity: copiedId === record.id ? 1 : 0,
+                              transform: `translateX(${copiedId === record.id ? '0px' : '6px'})`,
+                              transition: 'opacity 0.15s ease, transform 0.15s ease',
+                            }}
+                          >
+                            <span className="flex items-center gap-1 px-2 py-1 rounded bg-black/80 border border-green-400/30 text-green-400 text-[10px] font-mono tracking-wider">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                              Link copied!
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => copyRecordLink(record.id)}
+                            title="Copy share link"
+                            className="flex items-center justify-center w-6 h-6 rounded transition-all duration-200 hover:bg-gold/10 group"
+                          >
+                            {copiedId === record.id ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-nebula/40 group-hover:text-gold/70 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <p className="font-bold text-gold-glow mb-3">"{record.vibrationText}"</p>
                       
