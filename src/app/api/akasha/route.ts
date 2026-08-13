@@ -198,3 +198,47 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Failed to imprint the Akashic vibration.' }, { status: 500 });
   }
 }
+
+// PATCH: backfill image_url for old records that were saved without one
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { accessToken, recordId, imageUrl } = body;
+
+    if (!accessToken || !recordId || !imageUrl) {
+      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    }
+
+    if (isSupabaseConfigured && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      const userSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+      );
+
+      const { data: { user }, error: userError } = await userSupabase.auth.getUser();
+      if (userError || !user) {
+        return NextResponse.json({ error: 'Invalid session.' }, { status: 401 });
+      }
+
+      const { error } = await userSupabase
+        .from('akashic_records')
+        .update({ image_url: imageUrl })
+        .eq('id', recordId)
+        .eq('user_id', user.id)
+        .is('image_url', null); // Only backfill if still missing — never overwrite
+
+      if (error) {
+        console.error('PATCH image_url error:', error);
+        return NextResponse.json({ error: 'Failed to backfill image_url.' }, { status: 500 });
+      }
+
+      return NextResponse.json({ message: 'image_url backfilled.' });
+    }
+
+    return NextResponse.json({ message: 'Local mode — no backfill needed.' });
+  } catch (error) {
+    console.error('PATCH akasha error:', error);
+    return NextResponse.json({ error: 'Unexpected error.' }, { status: 500 });
+  }
+}

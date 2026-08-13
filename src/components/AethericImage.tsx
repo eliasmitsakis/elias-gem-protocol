@@ -11,6 +11,7 @@ export const AethericImage = ({
   objectFit = 'cover',
   noFallback = false,
   silentError = false,
+  onImageLoaded,
 }: {
   prompt: string;
   imageUrl?: string;
@@ -20,6 +21,7 @@ export const AethericImage = ({
   objectFit?: 'cover' | 'contain';
   noFallback?: boolean;
   silentError?: boolean;
+  onImageLoaded?: (url: string) => void;
 }) => {
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -76,7 +78,10 @@ export const AethericImage = ({
           src={currentSrc}
           alt="Aetheric Vision"
           className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            if (onImageLoaded && currentSrc) onImageLoaded(currentSrc);
+          }}
           onError={() => {
             // If noFallback is set, or the explicit imageUrl failed → show error, never regenerate
             if (noFallback || (imageUrl && currentSrc === imageUrl)) {

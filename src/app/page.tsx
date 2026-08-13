@@ -457,6 +457,21 @@ export default function CyberZenPortal() {
     };
   }, []);
 
+  // Silently backfill image_url in Supabase for old records that were saved without one
+  const backfillImageUrl = async (recordId: string, imageUrl: string) => {
+    const accessToken = session?.access_token;
+    if (!accessToken || !recordId || !imageUrl) return;
+    try {
+      await fetch('/api/akasha', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken, recordId, imageUrl }),
+      });
+    } catch (e) {
+      // Silent — don't disrupt UX if backfill fails
+    }
+  };
+
   // Re-fetch records whenever the session changes (login / logout)
   useEffect(() => {
     if (!authLoading) {
@@ -761,6 +776,7 @@ sys.stderr = io.StringIO()
                             height={400}
                             objectFit="cover"
                             silentError
+                            onImageLoaded={!record.imageUrl ? (url: string) => backfillImageUrl(record.id, url) : undefined}
                           />
                         </div>
                       )}
