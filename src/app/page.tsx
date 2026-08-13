@@ -979,9 +979,23 @@ sys.stderr = io.StringIO()
                       {!executionOutput.stdout && !executionOutput.stderr && (
                         <p className="text-gray-500 italic">Process completed with no output.</p>
                       )}
-                      <div className="mt-3 flex items-center">
-                        <span className="text-gray-600 mr-2">root@cyber-zen:~#</span>
-                        <span className="animate-pulse text-gold/80 text-lg leading-none">_</span>
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="text-gray-600 mr-2">root@cyber-zen:~#</span>
+                          <span className="animate-pulse text-gold/80 text-lg leading-none">_</span>
+                        </div>
+                        <button
+                          onClick={() => executePythonCode(aethericCode, seedOfTruth, imagePrompt, description, vibrationText, artifactId || undefined, currentImageUrl)}
+                          title="Re-run Aetheric Code"
+                          className="flex items-center gap-1.5 px-3 py-1 rounded bg-black/60 border border-nebula/40 text-nebula/60 hover:text-nebula hover:border-nebula hover:shadow-[0_0_10px_rgba(0,255,255,0.3)] transition-all duration-300 text-[10px] font-mono uppercase tracking-wider group relative z-20"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                          </svg>
+                          <span>Run</span>
+                        </button>
                       </div>
                     </div>
                   )}

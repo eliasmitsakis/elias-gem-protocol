@@ -230,7 +230,7 @@ async function runGeneration(vibrationText: string) {
   1. Historical & Mythological: Identify historical roots, archetypes, or mythological parallels related to the input.
   2. Philosophical: Extract the deeper existential essence (e.g., Stoicism, Nihilism, Cybernetic Existentialism) and ask what this means when the human soul meets the digital void.
   3. Poetic & Poignant: Weave allegories, rhythm, and subtle Easter eggs (lyrics, quotes, iconic references) into the text—transmute them, do not just copy them.
-  4. Cyber-Code Alignment (aethericCode): The Python code must not be random. Variables, functions, and comments must exactly reflect the philosophical/historical allegory.
+  4. Cyber-Code Alignment (aethericCode): Variables, functions, and comments must exactly reflect the philosophical/historical allegory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic (e.g., if/else based on probabilities) so that executing the code multiple times yields different philosophical outcomes or prints.
   5. Visual Archetype (imagePrompt): Synthesize recognizable visual symbols of the input with gothic, cyberpunk, or cybernetic landscapes into a unified aesthetic. IMPORTANT: Do not use generic evasions like "a figure resembling..." or "like a...". Use the precise, exact name of the entity, mascot, or character if one is recognized. AI Image models need the exact identifying name to render accurately.
 
   CRITICAL LANGUAGE RULES:
