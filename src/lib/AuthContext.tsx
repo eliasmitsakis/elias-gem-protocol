@@ -88,8 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider,
       options: {
         redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        // Microsoft (azure) needs the tenant set to 'common' for personal Hotmail accounts
-        ...(provider === 'azure' ? { queryParams: { prompt: 'select_account' } } : {}),
+        ...(provider === 'azure' ? { 
+          scopes: 'email',
+          queryParams: { prompt: 'select_account' } 
+        } : {}),
       },
     });
   };
