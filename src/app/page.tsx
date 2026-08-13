@@ -630,6 +630,23 @@ sys.stderr = io.StringIO()
       
       <div className="cyber-zen-bg"></div>
 
+      {/* Link Copied Toast */}
+      <div
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none"
+        style={{
+          opacity: copiedId ? 1 : 0,
+          transform: `translateX(-50%) translateY(${copiedId ? '0px' : '12px'})`,
+          transition: 'opacity 0.2s ease, transform 0.2s ease',
+        }}
+      >
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-green-400/40 backdrop-blur-sm shadow-lg shadow-black/50">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span className="text-xs font-mono tracking-widest text-green-400">Link copied!</span>
+        </div>
+      </div>
+
       {/* Top-left controls: Audio + Auth */}
       <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
         {/* Ambient Audio Toggle */}
