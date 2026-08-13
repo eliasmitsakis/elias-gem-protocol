@@ -39,6 +39,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export default async function SharedArtifactPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   
