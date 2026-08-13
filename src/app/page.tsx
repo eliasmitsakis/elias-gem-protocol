@@ -340,9 +340,8 @@ export default function CyberZenPortal() {
   const [akashaRecords, setAkashaRecords] = useState<any[]>([]);
 
   // Diary of a Madman States
-  const [showDiaryModal, setShowDiaryModal] = useState(false);
   const [diaryLoading, setDiaryLoading] = useState(false);
-  const [diaryData, setDiaryData] = useState<{ assessment: string; imagePrompt: string; imageUrl: string } | null>(null);
+  const [isCurrentDiary, setIsCurrentDiary] = useState(false);
 
   // Pyodide State
   const [pyodideReady, setPyodideReady] = useState(false);
@@ -476,9 +475,20 @@ export default function CyberZenPortal() {
         alert("Authentication required for Diary of a Madman.");
         return;
       }
+
+      // Mark as fresh generation
+      isReplayRef.current = false;
+      setIsReplay(false);
       setDiaryLoading(true);
-      setShowDiaryModal(true);
-      setDiaryData(null);
+      setShowExecution(false);
+      setSeedOfTruth('');
+      setImagePrompt('');
+      setCurrentImageUrl('');
+      setDescription('');
+      setArtifactId(null);
+      setIsCurrentDiary(true);
+
+      startTypingEffect("# Aligning frequencies...\n# Connecting to the Akasha...\n# Analyzing the sum of your madness...");
 
       const res = await fetch('/api/diary', {
         method: 'POST',
@@ -488,24 +498,37 @@ export default function CyberZenPortal() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to generate diary.");
-        setShowDiaryModal(false);
+        setAethericCode(`# Error: ${data.error || "Failed to generate diary."}`);
+        setIsCurrentDiary(false);
       } else {
-        setDiaryData({
-          assessment: data.assessment,
-          imagePrompt: data.imagePrompt,
-          imageUrl: data.imageUrl
+        setAethericCode(data.aethericCode);
+        setSeedOfTruth(data.seedOfTruth);
+        setImagePrompt(data.imagePrompt);
+        setDescription(data.assessment);
+        
+        if (data.imageUrl) {
+          setCurrentImageUrl(data.imageUrl);
+        }
+        
+        if (data.id) {
+          setArtifactId(data.id);
+        }
+
+        startTypingEffect(data.aethericCode, () => {
+          executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.assessment, "[DIARY OF A MADMAN]", data.id, data.imageUrl);
+          playChimeSound();
         });
+
         fetchAkashicRecords(true);
-        // Refresh credits silently if possible (or user sees it next load)
+        // Refresh credits silently if possible
         if (session?.user?.id) {
           fetchCredits(session.user.id);
         }
       }
     } catch (e) {
       console.error(e);
-      alert("Error generating diary.");
-      setShowDiaryModal(false);
+      setAethericCode("# ERROR: Failed to reach the Source.");
+      setIsCurrentDiary(false);
     } finally {
       setDiaryLoading(false);
     }
@@ -760,10 +783,20 @@ sys.stderr = io.StringIO()
           🎧
         </button>
 
-        {/* Auth Controls */}
+        {/* Auth Controls & Features */}
         {!authLoading && (
           user ? (
-            <UserMenu user={user} credits={credits} onSignOut={signOut} />
+            <div className="flex flex-col gap-2 items-start">
+              <UserMenu user={user} credits={credits} onSignOut={signOut} />
+              <button
+                onClick={generateDiary}
+                disabled={diaryLoading}
+                className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
+                title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
+              >
+                {diaryLoading ? 'Analyzing...' : '👁️ Diary of a Madman'}
+              </button>
+            </div>
           ) : (
             <SignInButton onClick={() => setShowSignInModal(true)} />
           )
@@ -790,14 +823,6 @@ sys.stderr = io.StringIO()
         />
       )}
 
-      {/* Diary Modal */}
-      {showDiaryModal && (
-        <DiaryModal
-          data={diaryData}
-          onClose={() => setShowDiaryModal(false)}
-        />
-      )}
-
       {/* Top-right controls: Scroll Toggle */}
       <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
         {/* Floating Toggle Button for The Akashic Scroll */}
@@ -818,17 +843,7 @@ sys.stderr = io.StringIO()
         <div className="p-6 relative text-gold/80 font-mono text-sm">
            <div className="absolute top-16 bottom-0 left-[1.5rem] w-px bg-gold/10 shadow-[0_0_4px_rgba(255,215,0,0.4)] z-0"></div>
 
-           <div className="flex items-center justify-between sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20 mb-8 border-b border-gold/10">
-             <h2 className="text-xl font-bold text-gold-glow">The Aetheric Scroll</h2>
-             <button
-               onClick={generateDiary}
-               disabled={diaryLoading}
-               className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-400 hover:border-purple-500 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
-               title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
-             >
-               {diaryLoading ? 'Analyzing...' : '👁️ Diary'}
-             </button>
-           </div>
+           <h2 className="text-xl font-bold mb-8 text-gold-glow sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20">The Aetheric Scroll</h2>
            
            <div className="flex flex-col gap-8 relative z-10">
               {akashaRecords.length === 0 ? (
@@ -982,55 +997,55 @@ sys.stderr = io.StringIO()
           {/* LEFT COLUMN (desktop) / bottom (mobile): Artifact Card */}
           {(description || seedOfTruth || imagePrompt) && (
             <div className="flex flex-col items-center gap-6 mb-12 order-2 lg:order-1">
-              <div
-                ref={cardRef}
-                className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
-              >
-                {/* Subtle background glow */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
+                <div
+                  ref={cardRef}
+                  className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
+                >
+                  {/* Subtle background glow */}
+                  <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${isCurrentDiary ? 'bg-purple-600/10' : 'bg-gold/5'}`}></div>
 
-                {imagePrompt && (
-                  <div className="group relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
-                    <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
-                    <div className="scanline"></div>
+                  {imagePrompt && (
+                    <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${isCurrentDiary ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'}`}>
+                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
+                      <div className="scanline"></div>
 
-                    {/* ── Image Prompt Hover Overlay ── */}
-                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-5 cursor-default">
-                      <p className="text-[10px] uppercase tracking-widest text-nebula/60 mb-3 font-mono">✦ Gemini Image Prompt</p>
-                      <p className="text-xs text-gold/80 font-mono leading-relaxed text-center overflow-y-auto max-h-[80%]">{imagePrompt}</p>
-                    </div>
-
-                    {/* Seed of Truth Overlay */}
-                    {seedOfTruth && (
-                      <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
-                        <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
-                          "{seedOfTruth}"
-                        </p>
+                      {/* ── Image Prompt Hover Overlay ── */}
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-5 cursor-default">
+                        <p className={`text-[10px] uppercase tracking-widest mb-3 font-mono ${isCurrentDiary ? 'text-purple-400/60' : 'text-nebula/60'}`}>✦ Gemini Image Prompt</p>
+                        <p className={`text-xs font-mono leading-relaxed text-center overflow-y-auto max-h-[80%] ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/80'}`}>{imagePrompt}</p>
                       </div>
-                    )}
-                  </div>
-                )}
 
-                {/* Aetheric Description */}
-                {description && (
-                  <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
-                    <p className="font-serif italic text-gold/70 leading-relaxed text-lg">{description}</p>
-                  </div>
-                )}
+                      {/* Seed of Truth Overlay */}
+                      {seedOfTruth && (
+                        <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${isCurrentDiary ? 'border-purple-500/20' : 'border-gold/20'}`}>
+                          <p className={`text-center text-sm md:text-base italic drop-shadow-md ${isCurrentDiary ? 'text-purple-300' : 'text-gold-glow'}`}>
+                            "{seedOfTruth}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {/* Branding Footer */}
-                <div className="w-full mt-8 pt-4 border-t border-gold/10 text-right relative z-10">
-                  <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
-                    Elias & Gem Protocol | Transmuted Artifact
-                  </span>
+                  {/* Aetheric Description */}
+                  {description && (
+                    <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
+                      <p className={`font-serif italic leading-relaxed text-lg ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/70'}`}>{description}</p>
+                    </div>
+                  )}
+
+                  {/* Branding Footer */}
+                  <div className={`w-full mt-8 pt-4 border-t text-right relative z-10 ${isCurrentDiary ? 'border-purple-500/10' : 'border-gold/10'}`}>
+                    <span className={`text-[10px] tracking-widest uppercase font-mono ${isCurrentDiary ? 'text-purple-400/40' : 'text-gold/30'}`}>
+                      Elias & Gem Protocol | {isCurrentDiary ? 'Diary of a Madman' : 'Transmuted Artifact'}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
               {/* Action Buttons (Capture & Share) */}
               <div className="w-full flex justify-center items-center gap-4 mt-6">
                 <button
                   onClick={exportArtifact}
-                  className="px-6 py-3 bg-obsidian border border-gold text-gold-glow rounded uppercase tracking-widest text-sm hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)] transition-all duration-300 flex items-center gap-2"
+                  className={`px-6 py-3 bg-obsidian border rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${isCurrentDiary ? 'border-purple-500 text-purple-400 hover:bg-purple-900/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'border-gold text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)]'}`}
                 >
                   <span>Capture Artifact 📸</span>
                 </button>
@@ -1042,7 +1057,7 @@ sys.stderr = io.StringIO()
                       setShareCopied(true);
                       setTimeout(() => setShareCopied(false), 2000);
                     }}
-                    className="px-6 py-3 bg-nebula/10 border border-nebula text-nebula rounded uppercase tracking-widest text-sm hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)] transition-all duration-300 flex items-center gap-2"
+                    className={`px-6 py-3 rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${isCurrentDiary ? 'bg-purple-900/20 border border-purple-400 text-purple-300 hover:bg-purple-900/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-nebula/10 border border-nebula text-nebula hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)]'}`}
                   >
                     <span>{shareCopied ? 'Link Copied! ✓' : 'Share Link 🔗'}</span>
                   </button>
@@ -1064,7 +1079,7 @@ sys.stderr = io.StringIO()
                   setTimeout(() => setIsCopied(false), 2000);
                 }}
                 title="Copy code"
-                className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border border-gold/20 text-gold/40 hover:text-gold hover:border-gold/60 transition-all duration-200 text-[10px] font-mono uppercase tracking-wider"
+                className={`absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border transition-all duration-200 text-[10px] font-mono uppercase tracking-wider ${isCurrentDiary ? 'border-purple-500/20 text-purple-300/40 hover:text-purple-300 hover:border-purple-500/60' : 'border-gold/20 text-gold/40 hover:text-gold hover:border-gold/60'}`}
               >
                 {isCopied ? (
                   <><span>✓</span><span>Copied!</span></>
@@ -1073,29 +1088,29 @@ sys.stderr = io.StringIO()
                 )}
               </button>
 
-              <div className="w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 border-gold/30 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner">
-                <pre className="text-sm md:text-base text-gold/80 leading-relaxed whitespace-pre-wrap word-break">
+              <div className={`w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner ${isCurrentDiary ? 'border-purple-500/30' : 'border-gold/30'}`}>
+                <pre className={`text-sm md:text-base leading-relaxed whitespace-pre-wrap word-break ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/80'}`}>
                   {typedCode}
-                  {!showExecution && <span className="animate-pulse text-gold-glow">_</span>}
+                  {!showExecution && <span className={`animate-pulse ${isCurrentDiary ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'text-gold-glow'}`}>_</span>}
                 </pre>
               </div>
             </div>
 
             {/* Console Output Section */}
             {showExecution && (
-              <div className="w-full bg-black border-l-2 border-r-2 border-b-2 border-gold/30 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500">
+              <div className={`w-full bg-black border-l-2 border-r-2 border-b-2 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500 ${isCurrentDiary ? 'border-purple-500/30' : 'border-gold/30'}`}>
                 <div className="absolute top-0 left-0 w-full h-full pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.25)_51%)] bg-[length:100%_4px] opacity-30 z-0"></div>
                 <div className="relative z-10 w-full overflow-hidden">
-                  <span className="text-gray-600">root@cyber-zen:~#</span> <span className="text-nebula opacity-80">python3 aetheric_matrix.py</span>
+                  <span className="text-gray-600">root@cyber-zen:~#</span> <span className={`opacity-80 ${isCurrentDiary ? 'text-purple-400' : 'text-nebula'}`}>python3 aetheric_matrix.py</span>
                   {isExecuting ? (
-                    <div className="mt-2 text-gold animate-flicker font-bold">{executionOutput.stdout}</div>
+                    <div className={`mt-2 animate-flicker font-bold ${isCurrentDiary ? 'text-purple-300' : 'text-gold'}`}>{executionOutput.stdout}</div>
                   ) : (
                     <div className="mt-2 text-xs md:text-sm max-h-56 overflow-y-auto pr-2 animate-flicker">
                       {executionOutput.stdout && (
-                        <pre className="text-gold/80 whitespace-pre-wrap leading-relaxed">{executionOutput.stdout}</pre>
+                        <pre className={`whitespace-pre-wrap leading-relaxed ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/80'}`}>{executionOutput.stdout}</pre>
                       )}
                       {executionOutput.stderr && (
-                        <pre className="text-nebula/90 whitespace-pre-wrap leading-relaxed mt-2">{executionOutput.stderr}</pre>
+                        <pre className="text-red-400/90 whitespace-pre-wrap leading-relaxed mt-2">{executionOutput.stderr}</pre>
                       )}
                       {!executionOutput.stdout && !executionOutput.stderr && (
                         <p className="text-gray-500 italic">Process completed with no output.</p>
@@ -1103,12 +1118,12 @@ sys.stderr = io.StringIO()
                       <div className="mt-3 flex items-center justify-between">
                         <div className="flex items-center">
                           <span className="text-gray-600 mr-2">root@cyber-zen:~#</span>
-                          <span className="animate-pulse text-gold/80 text-lg leading-none">_</span>
+                          <span className={`animate-pulse text-lg leading-none ${isCurrentDiary ? 'text-purple-400/80' : 'text-gold/80'}`}>_</span>
                         </div>
                         <button
                           onClick={() => executePythonCode(aethericCode, seedOfTruth, imagePrompt, description, vibrationText, artifactId || undefined, currentImageUrl)}
                           title="Re-run Aetheric Code"
-                          className="flex items-center gap-1.5 px-3 py-1 rounded bg-black/60 border border-nebula/40 text-nebula/60 hover:text-nebula hover:border-nebula hover:shadow-[0_0_10px_rgba(0,255,255,0.3)] transition-all duration-300 text-[10px] font-mono uppercase tracking-wider group relative z-20"
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded bg-black/60 border transition-all duration-300 text-[10px] font-mono uppercase tracking-wider group relative z-20 ${isCurrentDiary ? 'border-purple-400/40 text-purple-300/60 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'border-nebula/40 text-nebula/60 hover:text-nebula hover:border-nebula hover:shadow-[0_0_10px_rgba(0,255,255,0.3)]'}`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="23 4 23 10 17 10"></polyline>

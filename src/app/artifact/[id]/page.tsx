@@ -93,11 +93,11 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
         )}
 
         {/* Artifact Card */}
-        <div className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden border border-gold/10 shadow-2xl">
+        <div className={`w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden border shadow-2xl ${artifact.is_diary ? 'border-purple-500/20' : 'border-gold/10'}`}>
           {/* Subtle background glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
+          <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${artifact.is_diary ? 'bg-purple-600/10' : 'bg-gold/5'}`}></div>
 
-          <div className="group relative w-full aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+          <div className={`group relative w-full aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${artifact.is_diary ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'}`}>
             {imageUrl ? (
               <AethericImage
                 prompt={artifact.imageprompt || ''}
@@ -110,15 +110,15 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
             ) : (
               /* No stored image — show static placeholder, never regenerate */
               <div className="absolute inset-0 z-0 flex items-center justify-center bg-black/60">
-                <span className="text-gold/20 text-5xl select-none">✦</span>
+                <span className={`text-5xl select-none ${artifact.is_diary ? 'text-purple-500/20' : 'text-gold/20'}`}>✦</span>
               </div>
             )}
             <div className="scanline"></div>
 
             {/* Seed of Truth Overlay */}
             {artifact.seedoftruth && (
-              <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
-                <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
+              <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${artifact.is_diary ? 'border-purple-500/20' : 'border-gold/20'}`}>
+                <p className={`text-center text-sm md:text-base italic drop-shadow-md ${artifact.is_diary ? 'text-purple-300' : 'text-gold-glow'}`}>
                   &ldquo;{artifact.seedoftruth}&rdquo;
                 </p>
               </div>
@@ -129,17 +129,17 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
           {/* Aetheric Description */}
           {artifact.description && (
             <div className="mt-6 w-full text-center px-4 relative z-10">
-              <p className="font-serif italic text-gold/70 leading-relaxed text-lg">{artifact.description}</p>
+              <p className={`font-serif italic leading-relaxed text-lg ${artifact.is_diary ? 'text-purple-200/80' : 'text-gold/70'}`}>{artifact.description}</p>
             </div>
           )}
 
           {/* Branding Footer */}
-          <div className="w-full mt-8 pt-4 border-t border-gold/10 flex justify-between items-center relative z-10">
-            <span className="text-[10px] text-gold/30 font-mono">
+          <div className={`w-full mt-8 pt-4 border-t flex justify-between items-center relative z-10 ${artifact.is_diary ? 'border-purple-500/10' : 'border-gold/10'}`}>
+            <span className={`text-[10px] font-mono ${artifact.is_diary ? 'text-purple-400/30' : 'text-gold/30'}`}>
               {new Date(artifact.created_at).toLocaleDateString()}
             </span>
-            <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
-              Elias &amp; Gem Protocol
+            <span className={`text-[10px] tracking-widest uppercase font-mono ${artifact.is_diary ? 'text-purple-400/30' : 'text-gold/30'}`}>
+              Elias &amp; Gem Protocol {artifact.is_diary ? '| DIARY' : ''}
             </span>
           </div>
         </div>

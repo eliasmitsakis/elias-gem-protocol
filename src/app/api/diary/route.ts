@@ -99,7 +99,9 @@ export async function POST(req: Request) {
     
     Output Format: Strict JSON ONLY with these exact keys:
     1. "assessment": A poetic, philosophical evaluation of their mental trajectory based on their recent prompts. STRICT LIMIT: Maximum 4 sentences.
-    2. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the essence of their recent journey (gothic, cyberpunk, or cybernetic aesthetics). Keep it evocative and vivid.
+    2. "aethericCode": A functional Python snippet that reflects their mental trajectory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic so executing it multiple times yields different outcomes.
+    3. "seedOfTruth": A deep, punchy quote summarizing their journey. STRICT LIMIT: Maximum 15 words.
+    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the essence of their recent journey (gothic, cyberpunk, or cybernetic aesthetics). Keep it evocative and vivid.
 
     Do NOT include any markdown code blocks wrapping the JSON. Just output the raw JSON object.
     `;
@@ -122,6 +124,8 @@ export async function POST(req: Request) {
 
     const assessment = parsedData.assessment || "The void stares back, revealing a journey that transcends words.";
     const imagePrompt = parsedData.imagePrompt || "An abstract representation of a fragmented digital mind reaching for enlightenment.";
+    const aethericCode = parsedData.aethericCode || "# The system analyzed the void, and the void compiled.\nprint('Silence.')";
+    const seedOfTruth = parsedData.seedOfTruth || "The sum of our madness is the equation of our soul.";
 
     // 4. Generate Image via Fal.ai
     let imageUrl = null;
@@ -136,8 +140,8 @@ export async function POST(req: Request) {
         user_id: user.id,
         vibrationtext: "[DIARY OF A MADMAN]",
         description: assessment,
-        aethericcode: "# The system analyzed the void, and the void compiled.",
-        seedoftruth: "The sum of our madness is the equation of our soul.",
+        aethericcode: aethericCode,
+        seedoftruth: seedOfTruth,
         imageprompt: imagePrompt,
         image_url: imageUrl,
         is_diary: true
@@ -154,6 +158,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       assessment, 
+      aethericCode,
+      seedOfTruth,
       imagePrompt, 
       imageUrl, 
       id: recordData?.id 
