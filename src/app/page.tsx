@@ -458,14 +458,15 @@ export default function CyberZenPortal() {
   }, []);
 
   // Silently backfill image_url in Supabase for old records that were saved without one
-  const backfillImageUrl = async (recordId: string, imageUrl: string) => {
+  // The backend will generate the image, upload to Storage, and save the URL.
+  const backfillImageUrl = async (recordId: string, prompt: string) => {
     const accessToken = session?.access_token;
-    if (!accessToken || !recordId || !imageUrl) return;
+    if (!accessToken || !recordId || !prompt) return;
     try {
       await fetch('/api/akasha', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, recordId, imageUrl }),
+        body: JSON.stringify({ accessToken, recordId, prompt }),
       });
     } catch (e) {
       // Silent — don't disrupt UX if backfill fails
@@ -776,7 +777,7 @@ sys.stderr = io.StringIO()
                             height={400}
                             objectFit="cover"
                             silentError
-                            onImageLoaded={!record.imageUrl ? (url: string) => backfillImageUrl(record.id, url) : undefined}
+                            onImageLoaded={!record.imageUrl ? () => backfillImageUrl(record.id, record.imagePrompt) : undefined}
                           />
                         </div>
                       )}
