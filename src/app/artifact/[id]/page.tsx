@@ -80,65 +80,59 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
         </Link>
       </div>
 
-      {/* Main Content Layout */}
-      <div className="w-full flex flex-col items-center lg:grid lg:grid-cols-2 lg:items-start lg:gap-8 lg:max-w-5xl relative z-10">
-        
-        {/* LEFT COLUMN: Artifact Card */}
-        <div className="flex flex-col items-center gap-6 mb-12 order-2 lg:order-1 w-full">
-          <div className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden border border-gold/10 shadow-2xl">
-            {/* Subtle background glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
+      {/* Main Content Layout — single centered column */}
+      <div className="w-full flex flex-col items-center relative z-10 max-w-xl">
 
-            {artifact.imageprompt && (
-              <div className="group relative w-full max-w-xl aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
-                <AethericImage 
-                  prompt={artifact.imageprompt} 
-                  imageUrl={imageUrl} 
-                  width={800} 
-                  height={800} 
-                  className="absolute inset-0 z-0" 
-                  noFallback={false} 
-                />
-                <div className="scanline"></div>
+        {/* Image prompt label — above the card, outside the border */}
+        {artifact.imageprompt && (
+          <p className="w-full mb-3 text-[11px] font-mono text-gold/40 tracking-widest uppercase leading-relaxed text-left px-1">
+            ✦ {artifact.imageprompt}
+          </p>
+        )}
 
-                {/* Seed of Truth Overlay */}
-                {artifact.seedoftruth && (
-                  <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
-                    <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
-                      "{artifact.seedoftruth}"
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+        {/* Artifact Card */}
+        <div className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden border border-gold/10 shadow-2xl">
+          {/* Subtle background glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-gold/5 blur-[50px] pointer-events-none"></div>
 
-            {/* Aetheric Description */}
-            {artifact.description && (
-              <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
-                <p className="font-serif italic text-gold/70 leading-relaxed text-lg">{artifact.description}</p>
-              </div>
-            )}
+          {artifact.imageprompt && (
+            <div className="group relative w-full aspect-square rounded border-2 border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)] overflow-hidden flex flex-col justify-end z-10">
+              <AethericImage 
+                prompt={artifact.imageprompt} 
+                imageUrl={imageUrl} 
+                width={800} 
+                height={800} 
+                className="absolute inset-0 z-0" 
+                noFallback={false} 
+              />
+              <div className="scanline"></div>
 
-            {/* Branding Footer */}
-            <div className="w-full mt-8 pt-4 border-t border-gold/10 flex justify-between items-center relative z-10">
-              <span className="text-[10px] text-gold/30 font-mono">
-                {new Date(artifact.created_at).toLocaleDateString()}
-              </span>
-              <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
-                Elias & Gem Protocol
-              </span>
+              {/* Seed of Truth Overlay */}
+              {artifact.seedoftruth && (
+                <div className="relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t border-gold/20">
+                  <p className="text-center text-sm md:text-base italic text-gold-glow drop-shadow-md">
+                    &ldquo;{artifact.seedoftruth}&rdquo;
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* RIGHT COLUMN: Code Stream */}
-        <div className="w-full order-1 lg:order-2 flex flex-col shadow-2xl">
-          <div className="relative w-full">
-            <div className="w-full lg:max-h-[800px] overflow-y-auto border-l-2 border-gold/30 pl-4 py-4 pr-4 bg-obsidian/60 rounded shadow-inner">
-              <pre className="text-sm md:text-base text-gold/80 leading-relaxed whitespace-pre-wrap word-break">
-                {artifact.aethericcode}
-              </pre>
+          {/* Aetheric Description */}
+          {artifact.description && (
+            <div className="mt-6 w-full text-center px-4 relative z-10">
+              <p className="font-serif italic text-gold/70 leading-relaxed text-lg">{artifact.description}</p>
             </div>
+          )}
+
+          {/* Branding Footer */}
+          <div className="w-full mt-8 pt-4 border-t border-gold/10 flex justify-between items-center relative z-10">
+            <span className="text-[10px] text-gold/30 font-mono">
+              {new Date(artifact.created_at).toLocaleDateString()}
+            </span>
+            <span className="text-[10px] tracking-widest text-gold/30 uppercase font-mono">
+              Elias &amp; Gem Protocol
+            </span>
           </div>
         </div>
 
