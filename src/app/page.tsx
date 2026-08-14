@@ -350,6 +350,7 @@ export default function CyberZenPortal() {
   // Typing effect state
   const [typedCode, setTypedCode] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [isPromptCopied, setIsPromptCopied] = useState(false);
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Scroll Ref for Auto-Scroll
@@ -1019,16 +1020,32 @@ sys.stderr = io.StringIO()
                       {/* ── Image Prompt Copy Icon ── */}
                       <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <button
-                          onClick={() => navigator.clipboard.writeText(imagePrompt)}
-                          className={`group/copy flex items-center gap-2 p-2 rounded-md bg-black/60 backdrop-blur-sm border transition-all duration-300 ${isCurrentDiary ? 'border-purple-500/30 hover:border-purple-400/60 text-purple-300' : 'border-gold/30 hover:border-gold/60 text-gold'}`}
-                          title="Copy Image Prompt"
+                          onClick={() => {
+                            navigator.clipboard.writeText(imagePrompt);
+                            setIsPromptCopied(true);
+                            setTimeout(() => setIsPromptCopied(false), 2000);
+                          }}
+                          className={`group/copy flex items-center gap-2 p-2 rounded-md bg-black/60 backdrop-blur-sm border transition-all duration-300 ${
+                            isPromptCopied 
+                              ? 'border-green-500/60 text-green-400 bg-green-500/10'
+                              : isCurrentDiary 
+                                ? 'border-purple-500/30 hover:border-purple-400/60 text-purple-300' 
+                                : 'border-gold/30 hover:border-gold/60 text-gold'
+                          }`}
+                          title={isPromptCopied ? "Copied!" : "Copy Image Prompt"}
                         >
                           <span className="text-[10px] uppercase tracking-widest font-mono opacity-0 group-hover/copy:opacity-100 transition-opacity max-w-0 group-hover/copy:max-w-xs overflow-hidden whitespace-nowrap pl-1">
-                            Copy Prompt
+                            {isPromptCopied ? "Prompt Copied" : "Copy Prompt"}
                           </span>
-                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
+                          {isPromptCopied ? (
+                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          )}
                         </button>
                       </div>
 
