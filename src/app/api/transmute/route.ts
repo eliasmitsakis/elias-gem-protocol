@@ -249,7 +249,7 @@ async function runGeneration(vibrationText: string) {
   `;
 
   const result = await ai.models.generateContent({
-    model: 'gemini-3.6-flash', // Confirmed live on this key via /v1beta/models query (2026-07-22)
+    model: 'gemini-3.7-flash', // Confirmed live on this key via /v1beta/models query (2026-07-22)
     contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
   });
 
