@@ -883,7 +883,7 @@ sys.stderr = io.StringIO()
                           </div>
                           <button
                             onClick={() => copyRecordLink(record.id)}
-                            title="Copy share link"
+                            title="Copy private owner-only link"
                             className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-200 group ${record.is_diary ? 'hover:bg-purple-500/20' : 'hover:bg-gold/10'}`}
                           >
                             {copiedId === record.id ? (
@@ -1094,7 +1094,7 @@ sys.stderr = io.StringIO()
                     }}
                     className={`px-6 py-3 rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${isCurrentDiary ? 'bg-purple-900/20 border border-purple-400 text-purple-300 hover:bg-purple-900/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-nebula/10 border border-nebula text-nebula hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)]'}`}
                   >
-                    <span>{shareCopied ? 'Link Copied! ✓' : 'Share Link 🔗'}</span>
+                    <span>{shareCopied ? 'Private Link Copied! ✓' : 'Copy Private Link 🔒'}</span>
                   </button>
                 )}
               </div>
