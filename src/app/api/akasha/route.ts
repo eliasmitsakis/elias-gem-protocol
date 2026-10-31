@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { isSupabaseConfigured } from '@/lib/supabaseClient';
 
+interface TransmutationRecord {
+  id: string;
+  timestamp: string;
+  vibrationText: string;
+  description?: string;
+  aethericCode: string;
+  seedOfTruth: string;
+  imagePrompt: string;
+  executionOutput?: { stdout: string; stderr: string };
+  is_diary?: boolean;
+}
+
 export async function GET(req: Request) {
   try {
     // 1. SUPABASE CLOUD (Primary) — filter by user_id when authenticated
