@@ -224,27 +224,43 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: 'Invalid session.' }, { status: 401 });
       }
 
-      // 2. Generate and upload image using service role (for storage bypass if needed)
+      // Confirm ownership BEFORE spending money on image generation.
+      const { data: ownedRecord, error: ownershipError } = await userSupabase
+        .from('akashic_records')
+        .select('id, image_url, imageprompt')
+        .eq('id', recordId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (ownershipError || !ownedRecord) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+      }
+      if (ownedRecord.image_url) {
+        return NextResponse.json({ error: 'Image already exists' }, { status: 409 });
+      }
+      if (!ownedRecord.imageprompt) {
+        return NextResponse.json({ error: 'Record has no image prompt' }, { status: 400 });
+      }
+
       const adminClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY
       );
-      
-      const uploadedUrl = await generateImageAndUpload(prompt, adminClient);
+
+      const uploadedUrl = await generateImageAndUpload(ownedRecord.imageprompt, adminClient);
       if (!uploadedUrl) {
         return NextResponse.json({ error: 'Failed to generate and upload image.' }, { status: 500 });
       }
 
-      // 3. Update the record
-      const { error } = await userSupabase
+      // Only the trusted server can update image_url; authenticated users may
+      // update executionoutput only under the staged database policy.
+      const { error: updateError } = await adminClient
         .from('akashic_records')
         .update({ image_url: uploadedUrl })
         .eq('id', recordId)
         .eq('user_id', user.id)
-        .is('image_url', null); // Only backfill if still missing
-
-      if (error) {
-        console.error('PATCH image_url error:', error);
+        .is('image_url', null);
+      if (updateError) {
+        console.error('PATCH image_url error:', updateError);
         return NextResponse.json({ error: 'Failed to backfill image_url.' }, { status: 500 });
       }
 
