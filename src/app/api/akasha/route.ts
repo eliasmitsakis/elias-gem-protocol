@@ -109,37 +109,26 @@ export async function POST(req: Request) {
       let dbError;
       let dbData;
 
-      if (recordId) {
-        // Update existing record created by /api/transmute
-        const { data, error } = await userSupabase
-          .from('akashic_records')
-          .update({
-            executionoutput: record.executionOutput
-          })
-          .eq('id', recordId)
-          .eq('user_id', user.id);
-        dbError = error;
-        dbData = data;
-      } else {
-        // Fallback insert if no recordId was provided
-        const { data, error } = await userSupabase
-          .from('akashic_records')
-          .insert([
-             {
-               user_id: user.id,
-               vibrationtext: record.vibrationText,
-               description: record.description || null,
-               aethericcode: record.aethericCode,
-               seedoftruth: record.seedOfTruth,
-               imageprompt: record.imagePrompt,
-               image_url: imageUrl,
-               executionoutput: record.executionOutput
-             }
-          ]);
-        dbError = error;
-        dbData = data;
+      if (!recordId) {
+        return NextResponse.json(
+          { error: 'Record was not created by the credit-gated generation endpoint.' },
+          { status: 409 }
+        );
       }
-       
+      // Only update a record that was already created by /api/transmute
+      // or /api/diary; do not let this route create free records.
+      const { data, error } = await userSupabase
+        .from('akashic_records')
+        .update({ executionoutput: record.executionOutput })
+        .eq('id', recordId)
+        .eq('user_id', user.id)
+        .select('id');
+      dbError = error;
+      dbData = data;
+      if (!error && (!data || data.length === 0)) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+      }
+
       if (dbError) {
          console.error("Supabase POST Error", dbError);
          throw dbError;
