@@ -917,6 +917,7 @@ sys.stderr = io.StringIO()
                           <AethericImage
                             prompt={record.imagePrompt}
                             imageUrl={record.imageUrl}
+                            recordId={record.id}
                             width={400}
                             height={400}
                             objectFit="cover"
@@ -1014,7 +1015,7 @@ sys.stderr = io.StringIO()
 
                   {imagePrompt && (
                     <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${isCurrentDiary ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'}`}>
-                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
+                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
                       <div className="scanline"></div>
 
                       {/* ── Image Prompt Copy Icon ── */}
