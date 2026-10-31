@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/AuthContext';
 
 export const AethericImage = ({
   prompt,
   imageUrl,
+  recordId,
   width,
   height,
   className = "",
@@ -15,6 +17,7 @@ export const AethericImage = ({
 }: {
   prompt: string;
   imageUrl?: string;
+  recordId?: string | number | null;
   width: number;
   height: number;
   className?: string;
@@ -23,6 +26,9 @@ export const AethericImage = ({
   silentError?: boolean;
   onImageLoaded?: (url: string) => void;
 }) => {
+  const { session } = useAuth();
+  const [authenticatedImageUrl, setAuthenticatedImageUrl] = useState<string | null>(null);
+  const [privateImageUrl, setPrivateImageUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
@@ -34,9 +40,68 @@ export const AethericImage = ({
     setUseFallback(false);
   }, [prompt, imageUrl]);
 
-  const currentSrc = (!noFallback && (useFallback || !imageUrl))
-    ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
-    : (imageUrl || null);
+  const needsGeneration = !noFallback && (useFallback || !imageUrl);
+  useEffect(() => {
+    if (!needsGeneration || !prompt || !session?.access_token) {
+      setAuthenticatedImageUrl(null);
+      return;
+    }
+    const controller = new AbortController();
+    let blobUrl: string | null = null;
+    setAuthenticatedImageUrl(null);
+    fetch(`/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      signal: controller.signal,
+    }).then(async response => {
+      if (!response.ok) throw new Error('Vision generation failed');
+      const blob = await response.blob();
+      if (!controller.signal.aborted) {
+        blobUrl = URL.createObjectURL(blob);
+        setAuthenticatedImageUrl(blobUrl);
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted) setHasError(true);
+    });
+    return () => {
+      controller.abort();
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [needsGeneration, prompt, width, height, session?.access_token]);
+
+  useEffect(() => {
+    if (!recordId || !imageUrl || !session?.access_token) {
+      setPrivateImageUrl(null);
+      return;
+    }
+    const controller = new AbortController();
+    let blobUrl: string | null = null;
+    setPrivateImageUrl(null);
+    fetch('/api/record-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ recordId }),
+      signal: controller.signal,
+    }).then(async response => {
+      if (!response.ok) throw new Error('Unable to load private record image');
+      const blob = await response.blob();
+      if (!controller.signal.aborted) {
+        blobUrl = URL.createObjectURL(blob);
+        setPrivateImageUrl(blobUrl);
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted) setHasError(true);
+    });
+    return () => {
+      controller.abort();
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [recordId, imageUrl, session?.access_token]);
+
+  const currentSrc = needsGeneration ? authenticatedImageUrl :
+    (recordId && imageUrl ? privateImageUrl : (imageUrl || null));
 
   useEffect(() => {
     if (imgRef.current && imgRef.current.complete && !loaded && !hasError && currentSrc) {
