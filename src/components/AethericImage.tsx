@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/AuthContext';
 
 export const AethericImage = ({
   prompt,
@@ -23,6 +24,8 @@ export const AethericImage = ({
   silentError?: boolean;
   onImageLoaded?: (url: string) => void;
 }) => {
+  const { session } = useAuth();
+  const [authenticatedImageUrl, setAuthenticatedImageUrl] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
@@ -34,9 +37,35 @@ export const AethericImage = ({
     setUseFallback(false);
   }, [prompt, imageUrl]);
 
-  const currentSrc = (!noFallback && (useFallback || !imageUrl))
-    ? `/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`
-    : (imageUrl || null);
+  const needsGeneration = !noFallback && (useFallback || !imageUrl);
+  useEffect(() => {
+    if (!needsGeneration || !prompt || !session?.access_token) {
+      setAuthenticatedImageUrl(null);
+      return;
+    }
+    const controller = new AbortController();
+    let blobUrl: string | null = null;
+    setAuthenticatedImageUrl(null);
+    fetch(`/api/vision?prompt=${encodeURIComponent(prompt)}&width=${width}&height=${height}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      signal: controller.signal,
+    }).then(async response => {
+      if (!response.ok) throw new Error('Vision generation failed');
+      const blob = await response.blob();
+      if (!controller.signal.aborted) {
+        blobUrl = URL.createObjectURL(blob);
+        setAuthenticatedImageUrl(blobUrl);
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted) setHasError(true);
+    });
+    return () => {
+      controller.abort();
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [needsGeneration, prompt, width, height, session?.access_token]);
+
+  const currentSrc = needsGeneration ? authenticatedImageUrl : (imageUrl || null);
 
   useEffect(() => {
     if (imgRef.current && imgRef.current.complete && !loaded && !hasError && currentSrc) {
