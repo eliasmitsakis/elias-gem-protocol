@@ -16,11 +16,21 @@ export async function POST(req: Request) {
   try {
     const { vibrationText, accessToken } = await req.json();
 
+    if (typeof vibrationText !== 'string' || !vibrationText.trim() || vibrationText.length > 4000) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+    if (!accessToken || typeof accessToken !== 'string') {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     // --- CREDIT SYSTEM (The Wall) ---
     // Requires Supabase to be configured and an authenticated user
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+    if (!supabaseUrl || !serviceRoleKey || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return NextResponse.json({ error: 'Authentication service not configured' }, { status: 503 });
+    }
     if (supabaseUrl && serviceRoleKey && accessToken) {
       // 1. Validate the user's session token
       const userClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
