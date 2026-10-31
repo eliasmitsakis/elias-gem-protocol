@@ -18,18 +18,15 @@ DROP POLICY IF EXISTS "Owner can update execution output" ON public.akashic_reco
 -- Grants restrict even anonymous clients before RLS evaluates.
 -- No direct DELETE, TRUNCATE, or image_url UPDATE privileges.
 REVOKE ALL PRIVILEGES ON TABLE public.akashic_records FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT ON TABLE public.akashic_records TO authenticated;
+GRANT SELECT ON TABLE public.akashic_records TO authenticated;
 GRANT UPDATE (executionoutput) ON TABLE public.akashic_records TO authenticated;
 
 CREATE POLICY "Owner can view own records"
   ON public.akashic_records FOR SELECT TO authenticated
   USING ((SELECT auth.uid()) = user_id);
 
--- Client-generated fallback records must not reference arbitrary image objects.
--- The trusted API service role handles generated image_url fields instead.
-CREATE POLICY "Owner can insert own records"
-  ON public.akashic_records FOR INSERT TO authenticated
-  WITH CHECK ((SELECT auth.uid()) = user_id AND image_url IS NULL);
+-- Only trusted server routes create records, after credit authorization.
+-- INSERT remains service-role-only: clients must not bypass the credit gate.
 
 CREATE POLICY "Owner can update execution output"
   ON public.akashic_records FOR UPDATE TO authenticated
