@@ -1,36 +1,6 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 import { createClient } from '@supabase/supabase-js';
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
-
-// Define the file path for the Akashic Records (Local JSON fallback)
-const dataFilePath = path.join(process.cwd(), 'src', 'data', 'akashic_records.json');
-
-export interface TransmutationRecord {
-  id: string;
-  timestamp: string;
-  vibrationText: string;
-  description?: string;
-  aethericCode: string;
-  seedOfTruth: string;
-  imagePrompt: string;
-  executionOutput?: {
-    stdout: string;
-    stderr: string;
-  };
-  is_diary?: boolean;
-}
-
-const ensureDataFile = () => {
-  const dirPath = path.dirname(dataFilePath);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-  if (!fs.existsSync(dataFilePath)) {
-    fs.writeFileSync(dataFilePath, JSON.stringify([]), 'utf-8');
-  }
-};
+import { isSupabaseConfigured } from '@/lib/supabaseClient';
 
 export async function GET(req: Request) {
   try {
@@ -41,7 +11,7 @@ export async function GET(req: Request) {
 
       // Require authentication — no token means no records
       if (!accessToken) {
-        return NextResponse.json([]);
+        return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
       }
 
       // Build a user-scoped client so auth.uid() resolves correctly
@@ -54,7 +24,7 @@ export async function GET(req: Request) {
       // Validate the token and resolve the user's ID
       const { data: { user }, error: userError } = await userSupabase.auth.getUser();
       if (userError || !user) {
-        return NextResponse.json([]);
+        return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
       }
 
       // Fetch only this user's records
@@ -84,17 +54,10 @@ export async function GET(req: Request) {
         };
       });
 
-      return NextResponse.json(transformedData);
+      return NextResponse.json(transformedData, { headers: { 'Cache-Control': 'private, no-store' } });
     }
 
-    // 2. LOCAL JSON FALLBACK
-    ensureDataFile();
-    const data = fs.readFileSync(dataFilePath, 'utf-8');
-    const records: TransmutationRecord[] = JSON.parse(data);
-    const sortedRecords = records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    
-    return NextResponse.json(sortedRecords);
-    
+    return NextResponse.json({ error: 'Records service unavailable' }, { status: 503 });
   } catch (error) {
     console.error("Failed to read Akashic Records", error);
     return NextResponse.json({ error: 'Failed to access the Akashic Records database.' }, { status: 500 });
@@ -176,25 +139,7 @@ export async function POST(req: Request) {
        return NextResponse.json({ message: 'Record written to Supabase successfully.', record: dbData });
     }
     
-    // 2. LOCAL JSON FALLBACK (no auth gate in local mode)
-    ensureDataFile();
-    const fileData = fs.readFileSync(dataFilePath, 'utf-8');
-    let records: TransmutationRecord[] = [];
-    try {
-      records = JSON.parse(fileData);
-    } catch(e) {}
-
-    const newRecord: TransmutationRecord & { imageUrl?: string } = {
-      ...record,
-      id: recordId || crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      imageUrl: imageUrl
-    };
-
-    records.push(newRecord);
-    fs.writeFileSync(dataFilePath, JSON.stringify(records, null, 2), 'utf-8');
-
-    return NextResponse.json({ message: 'Record written to local JSON successfully.', record: newRecord });
+    return NextResponse.json({ error: 'Records service unavailable' }, { status: 503 });
   } catch (error) {
     console.error("Error writing to Akashic Records", error);
     return NextResponse.json({ error: 'Failed to imprint the Akashic vibration.' }, { status: 500 });
@@ -306,7 +251,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ message: 'image_url backfilled.', imageUrl: uploadedUrl });
     }
 
-    return NextResponse.json({ message: 'Local mode — no backfill needed.' });
+    return NextResponse.json({ error: 'Records service unavailable' }, { status: 503 });
   } catch (error) {
     console.error('PATCH akasha error:', error);
     return NextResponse.json({ error: 'Unexpected error.' }, { status: 500 });
