@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 const FAL_KEY = process.env.FAL_KEY;
 const FAL_FLUX_ENDPOINT = 'https://fal.run/fal-ai/flux/schnell';
 
 export async function GET(request: NextRequest) {
+  const token = request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!token || !url || !anonKey) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+  const client = createClient(url, anonKey);
+  const { data: { user }, error } = await client.auth.getUser(token);
+  if (error || !user) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
   const searchParams = request.nextUrl.searchParams;
   const prompt = searchParams.get('prompt');
 
