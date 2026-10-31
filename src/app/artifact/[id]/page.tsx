@@ -1,62 +1,65 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { AethericImage } from '@/components/AethericImage';
+import { useAuth } from '@/lib/AuthContext';
 
-// Setup Supabase client for reading
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Artifact links are private. No server-side metadata or anonymous reads.
+export default function PrivateArtifactPage() {
+  const { id } = useParams<{ id: string }>();
+  const { session, loading: authLoading, signInWithProvider } = useAuth();
+  const [artifact, setArtifact] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-// Next.js dynamic metadata for SEO
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  const { data: artifact } = await supabase
-    .from('akashic_records')
-    .select('description, seedoftruth, imageprompt, image_url')
-    .eq('id', resolvedParams.id)
-    .single();
+  useEffect(() => {
+    if (authLoading) return;
+    if (!session?.access_token || !id) {
+      setArtifact(null);
+      setLoading(false);
+      return;
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      setArtifact(null);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    const userClient = createClient(url, key, {
+      global: { headers: { Authorization: `Bearer ${session.access_token}` } }
+    });
+    userClient.from('akashic_records').select('*')
+      .eq('id', id).eq('user_id', session.user.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        setArtifact(error ? null : data);
+        setLoading(false);
+      });
+    return () => { active = false; };
+  }, [id, session?.access_token, session?.user.id, authLoading]);
 
+  if (authLoading || loading) {
+    return <main className="min-h-screen bg-[#050505] text-gold/80 p-12">Loading private artifact…</main>;
+  }
+  if (!session) {
+    return (
+      <main className="min-h-screen bg-[#050505] text-gold/80 flex flex-col items-center justify-center gap-6 p-8">
+        <h1 className="text-2xl">Sign in to view your Akashic Record</h1>
+        <p>This artifact is private to its owner.</p>
+        <button className="px-6 py-3 border border-gold/40 rounded" onClick={() => signInWithProvider('google')}>Sign in with Google</button>
+        <Link href="/" className="underline">Back to portal</Link>
+      </main>
+    );
+  }
   if (!artifact) {
-    return { title: 'Artifact Not Found | Cyber-Zen' };
+    return <main className="min-h-screen bg-[#050505] text-gold/80 p-12">Record not found or not owned by this account. <Link href="/" className="underline">Back to portal</Link></main>;
   }
-
-  return {
-    title: `Aetheric Artifact | Elias & Gem Protocol`,
-    description: artifact.description || artifact.seedoftruth || 'A vibration transmuted into code.',
-    openGraph: {
-      title: 'Transmuted Artifact | Cyber-Zen',
-      description: artifact.description || artifact.seedoftruth,
-      images: [
-        {
-          url: artifact.image_url || `https://image.pollinations.ai/prompt/${encodeURIComponent(artifact.imageprompt || 'abstract fractal')}?width=1200&height=630&nologo=true`,
-          width: 1200,
-          height: 630,
-        },
-      ],
-    },
-  };
-}
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export default async function SharedArtifactPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = await params;
-  
-  // Fetch artifact from DB
-  const { data: artifact, error } = await supabase
-    .from('akashic_records')
-    .select('*')
-    .eq('id', resolvedParams.id)
-    .single();
-
-  if (error || !artifact) {
-    notFound();
-  }
-
-  // Use the locked image_url from DB only — never regenerate
-  const imageUrl = artifact.image_url || null;
+  const imageUrl: string | null = artifact.image_url || null;
 
   return (
     <div className="min-h-screen bg-[#050505] text-gold/80 font-sans relative selection:bg-gold/20 selection:text-gold-glow flex flex-col items-center py-12 px-4 md:px-8">
@@ -102,6 +105,7 @@ export default async function SharedArtifactPage({ params }: { params: Promise<{
               <AethericImage
                 prompt={artifact.imageprompt || ''}
                 imageUrl={imageUrl}
+                recordId={artifact.id}
                 width={800}
                 height={800}
                 className="absolute inset-0 z-0"
