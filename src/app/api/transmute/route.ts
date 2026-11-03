@@ -2,164 +2,176 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
-// Ensure the API key exists
-const apiKey = process.env.GOOGLE_API_KEY;
-
-// Admin emails that bypass the credit system entirely
 const ADMIN_EMAILS = ['elias.gemprotocol@gmail.com', 'eliasmitsakis@gmail.com'];
 
+// The browser opts into NDJSON so text can be shown while the slower image
+// generation and upload continue in the same, already-authorized request.
 export async function POST(req: Request) {
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Google API key is missing. Ensure .env.local is configured.' }, { status: 500 });
+  if (!process.env.GOOGLE_API_KEY) {
+    return NextResponse.json({ error: 'Google API key is not configured.' }, { status: 503 });
+  }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !anonKey || !serviceKey) {
+    return NextResponse.json({ error: 'Authentication service not configured.' }, { status: 503 });
   }
 
+  let vibrationText: unknown;
+  let accessToken: unknown;
   try {
-    const { vibrationText, accessToken } = await req.json();
-
-    if (typeof vibrationText !== 'string' || !vibrationText.trim() || vibrationText.length > 4000) {
-      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
-    }
-    if (!accessToken || typeof accessToken !== 'string') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // --- CREDIT SYSTEM (The Wall) ---
-    // Requires Supabase to be configured and an authenticated user
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return NextResponse.json({ error: 'Authentication service not configured' }, { status: 503 });
-    }
-    if (supabaseUrl && serviceRoleKey && accessToken) {
-      // 1. Validate the user's session token
-      const userClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-        global: { headers: { Authorization: `Bearer ${accessToken}` } },
-      });
-      const { data: { user }, error: userError } = await userClient.auth.getUser();
-
-      if (userError || !user) {
-        return NextResponse.json({ error: 'Invalid or expired session. Please sign in again.' }, { status: 401 });
-      }
-
-      // 2. Admin whitelist — bypass credit check entirely
-      const isAdmin = ADMIN_EMAILS.includes(user.email ?? '');
-
-      if (!isAdmin) {
-        // Use service-role client to read/write credits without RLS interference
-        const adminClient = createClient(supabaseUrl, serviceRoleKey);
-
-        // 3. Read current credits from the profiles table
-        const { data: profile, error: profileError } = await adminClient
-          .from('profiles')
-          .select('credits')
-          .eq('id', user.id)
-          .single();
-
-        if (profileError) {
-          console.error('Credit check error:', profileError);
-          // If the profile row doesn't exist yet, create it with default 3 credits
-          if (profileError.code === 'PGRST116') {
-            await adminClient.from('profiles').insert({ id: user.id, credits: 5 });
-          } else {
-            return NextResponse.json({ error: 'Failed to verify your credits.' }, { status: 500 });
-          }
-        }
-
-        const currentCredits = profile?.credits ?? 5;
-
-        // 4. Gate: block if out of credits
-        if (currentCredits <= 0) {
-          return NextResponse.json(
-            { error: 'You have used all your transmutation credits. Contact elias.gemprotocol@gmail.com to get more.' },
-            { status: 403 }
-          );
-        }
-
-        // 5. Deduct 1 credit after a successful generation (done after the AI call below)
-        // Store adminClient and userId for post-generation deduction
-        const deductCredit = async () => {
-          await adminClient
-            .from('profiles')
-            .update({ credits: currentCredits - 1 })
-            .eq('id', user.id);
-        };
-
-        // Run AI text generation
-        const aiResult = await runGeneration(vibrationText);
-
-        // Generate and upload image via Fal.ai
-        let imageUrl = null;
-        if (aiResult.imagePrompt && process.env.FAL_KEY) {
-           imageUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
-        }
-
-        // 6. Save the artifact to akashic_records so it can be shared and viewed in history
-        const { data: recordData, error: recordError } = await adminClient
-          .from('akashic_records')
-          .insert({
-            user_id: user.id,
-            vibrationtext: vibrationText,
-            description: aiResult.description,
-            aethericcode: aiResult.aethericCode,
-            seedoftruth: aiResult.seedOfTruth,
-            imageprompt: aiResult.imagePrompt,
-            image_url: imageUrl
-          })
-          .select('id')
-          .single();
-
-        if (recordError) {
-          console.error("Failed to save akashic record:", recordError);
-        }
-
-        // Deduct credit
-        await deductCredit();
-        
-        return NextResponse.json({ ...aiResult, imageUrl, id: recordData?.id });
-      }
-      // Admin path — skip credit check, go straight to generation
-    }
-
-    // Non-Supabase path OR admin path — generate freely
-    const aiResult = await runGeneration(vibrationText);
-    
-    // For admins, we should also generate image, upload, and save so they can share it
-    let recordId = null;
-    let imageUrl = null;
-    if (supabaseUrl && serviceRoleKey && accessToken) {
-       const userClient = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-         global: { headers: { Authorization: `Bearer ${accessToken}` } },
-       });
-       const { data: { user } } = await userClient.auth.getUser();
-       if (user) {
-         const adminClient = createClient(supabaseUrl, serviceRoleKey);
-         if (aiResult.imagePrompt && process.env.FAL_KEY) {
-            imageUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
-         }
-         const { data: recordData } = await adminClient
-            .from('akashic_records')
-            .insert({
-              user_id: user.id,
-              vibrationtext: vibrationText,
-              description: aiResult.description,
-              aethericcode: aiResult.aethericCode,
-              seedoftruth: aiResult.seedOfTruth,
-              imageprompt: aiResult.imagePrompt,
-              image_url: imageUrl
-            })
-            .select('id')
-            .single();
-         recordId = recordData?.id;
-       }
-    }
-
-    return NextResponse.json({ ...aiResult, imageUrl, id: recordId });
-
-  } catch (error: any) {
-    console.error("Transmutation Error:", error);
-    return NextResponse.json({ error: error.message || 'Failed to align vibration.' }, { status: 500 });
+    ({ vibrationText, accessToken } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
+  if (typeof vibrationText !== 'string' || !vibrationText.trim() || vibrationText.length > 4000) {
+    return NextResponse.json({ error: 'Invalid input.' }, { status: 400 });
+  }
+  if (typeof accessToken !== 'string' || !accessToken) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+
+  const userClient = createClient(supabaseUrl, anonKey);
+  const { data: { user }, error: authError } = await userClient.auth.getUser(accessToken);
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Invalid or expired session.' }, { status: 401 });
+  }
+
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const isAdmin = ADMIN_EMAILS.includes(user.email ?? '');
+  let currentCredits = 0;
+  if (!isAdmin) {
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('credits')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Credit check error:', profileError);
+      return NextResponse.json({ error: 'Failed to verify your credits.' }, { status: 500 });
+    }
+    if (!profile) {
+      const { error: createError } = await adminClient
+        .from('profiles')
+        .insert({ id: user.id, credits: 5 });
+      if (createError && createError.code !== '23505') {
+        return NextResponse.json({ error: 'Failed to initialize credits.' }, { status: 500 });
+      }
+      currentCredits = 5;
+    } else {
+      currentCredits = profile.credits;
+    }
+    if (currentCredits <= 0) {
+      return NextResponse.json({ error: 'You have used all your transmutation credits.' }, { status: 403 });
+    }
+  }
+
+  type Emit = (type: string, data: Record<string, unknown>) => void;
+  const transmute = async (emit: Emit) => {
+    emit('stage', { stage: 'text' });
+    const aiResult = await runGeneration(vibrationText);
+
+    // Persist text first. Its record ID allows the browser to display the
+    // artifact immediately and later load the image through the private proxy.
+    emit('stage', { stage: 'saving' });
+    const { data: saved, error: saveError } = await adminClient
+      .from('akashic_records')
+      .insert({
+        user_id: user.id,
+        vibrationtext: vibrationText,
+        description: aiResult.description,
+        aethericcode: aiResult.aethericCode,
+        seedoftruth: aiResult.seedOfTruth,
+        imageprompt: aiResult.imagePrompt,
+        image_url: null,
+      })
+      .select('id')
+      .single();
+    if (saveError || !saved) {
+      console.error('Failed to save Akashic record:', saveError);
+      throw new Error('Could not save the transmutation.');
+    }
+
+    // Keep one credit charge per generated artifact, not per image request.
+    // The existing concurrency limitation in the credit balance is separate
+    // from this UI latency fix.
+    if (!isAdmin) {
+      const { error: deductionError } = await adminClient
+        .from('profiles')
+        .update({ credits: currentCredits - 1 })
+        .eq('id', user.id);
+      if (deductionError) {
+        console.error('Credit deduction failed:', deductionError);
+      }
+    }
+
+    const artifact = { ...aiResult, id: saved.id, imageUrl: null as string | null };
+    emit('artifact', artifact);
+    let imageUrl: string | null = null;
+    if (aiResult.imagePrompt && process.env.FAL_KEY) {
+      emit('stage', { stage: 'image' });
+      const generatedUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
+      if (generatedUrl) {
+        const { error: updateError } = await adminClient
+          .from('akashic_records')
+          .update({ image_url: generatedUrl })
+          .eq('id', saved.id)
+          .eq('user_id', user.id);
+        if (updateError) {
+          console.error('Failed to attach generated image:', updateError);
+        } else {
+          imageUrl = generatedUrl;
+          emit('image', { imageUrl, id: saved.id });
+        }
+      }
+    }
+    emit('complete', { id: saved.id, imageUrl });
+    return { ...artifact, imageUrl };
+  };
+
+  // Preserve JSON behavior for other clients that do not request a stream.
+  if (!req.headers.get('accept')?.includes('application/x-ndjson')) {
+    try {
+      return NextResponse.json(await transmute(() => {}), {
+        headers: { 'Cache-Control': 'private, no-store' }
+      });
+    } catch (error) {
+      console.error('Transmutation error:', error);
+      return NextResponse.json({ error: 'Failed to generate or save transmutation.' }, { status: 500 });
+    }
+  }
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const emit: Emit = (type, data) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify({ type, data }) + '\n'));
+        } catch {
+          // Client disconnected: do not interrupt the already-started
+          // generation or its database write.
+        }
+      };
+      void (async () => {
+        try {
+          await transmute(emit);
+        } catch (error) {
+          console.error('Streaming transmutation error:', error);
+          emit('error', { error: 'Failed to generate or save transmutation.' });
+        } finally {
+          try { controller.close(); } catch { /* disconnected */ }
+        }
+      })();
+    }
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'private, no-store, no-transform',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 }
 
 // --- Image generation logic ---
