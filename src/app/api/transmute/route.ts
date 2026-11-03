@@ -154,6 +154,8 @@ export async function POST(req: Request) {
           // generation or its database write.
         }
       };
+      // Keep intermediate connections active during slow AI or image calls.
+      const heartbeat = setInterval(() => emit('heartbeat', {}), 12000);
       void (async () => {
         try {
           await transmute(emit);
@@ -161,6 +163,7 @@ export async function POST(req: Request) {
           console.error('Streaming transmutation error:', error);
           emit('error', { error: 'Failed to generate or save transmutation.' });
         } finally {
+          clearInterval(heartbeat);
           try { controller.close(); } catch { /* disconnected */ }
         }
       })();
