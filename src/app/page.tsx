@@ -289,6 +289,7 @@ export default function CyberZenPortal() {
   const [particles, setParticles] = useState<number[]>([]);
   const [vibrationText, setVibrationText] = useState('');
   const [isTransmuting, setIsTransmuting] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('');
   
   // Audio and Glow states
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
@@ -565,14 +566,15 @@ export default function CyberZenPortal() {
     
     setTypedCode('');
     let i = 0;
+    const step = Math.max(1, Math.ceil(textToType.length / 140));
     typingIntervalRef.current = setInterval(() => {
-      setTypedCode(textToType.substring(0, i + 1));
-      i++;
+      i = Math.min(textToType.length, i + step);
+      setTypedCode(textToType.substring(0, i));
       if (i >= textToType.length && typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
         if (onComplete) onComplete();
       }
-    }, 40);
+    }, 20);
   };
 
   useEffect(() => {
@@ -584,22 +586,6 @@ export default function CyberZenPortal() {
       if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
     };
   }, []);
-
-  // Silently backfill image_url in Supabase for old records that were saved without one
-  // The backend will generate the image, upload to Storage, and save the URL.
-  const backfillImageUrl = async (recordId: string, prompt: string) => {
-    const accessToken = session?.access_token;
-    if (!accessToken || !recordId || !prompt) return;
-    try {
-      await fetch('/api/akasha', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, recordId, prompt }),
-      });
-    } catch (e) {
-      // Silent — don't disrupt UX if backfill fails
-    }
-  };
 
   // Re-fetch records whenever the session changes (login / logout)
   useEffect(() => {
@@ -692,6 +678,7 @@ sys.stderr = io.StringIO()
     setSeedOfTruth(record.seedOfTruth);
     setImagePrompt(record.imagePrompt || '');
     setCurrentImageUrl(record.imageUrl || '');
+    setArtifactId(String(record.id));
     setDescription(record.description || '');
     setExecutionOutput(record.executionOutput || { stdout: '', stderr: '' });
     setShowExecution(true);
@@ -702,68 +689,120 @@ sys.stderr = io.StringIO()
   };
 
   const handleTransmute = async () => {
-    if (!vibrationText.trim() || !user) return;
+    if (!vibrationText.trim() || !user || isTransmuting) return;
 
-    // Mark as fresh generation — re-enable saving and generation fallbacks
     isReplayRef.current = false;
     setIsReplay(false);
     setIsCurrentDiary(false);
     setIsTransmuting(true);
+    setGenerationStatus('Contacting the transmutation engine…');
     setShowExecution(false);
     setSeedOfTruth('');
     setImagePrompt('');
     setCurrentImageUrl('');
     setDescription('');
     setArtifactId(null);
-
     const currentVibText = vibrationText;
-    
-    startTypingEffect("# Aligning frequencies...\n# Preparing transmute protocol...");
-    
+    startTypingEffect('# Aligning frequencies…\\n# Preparing transmute protocol…');
+
+    let receivedArtifact = false;
+    let completed = false;
     try {
       const response = await fetch('/api/transmute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/x-ndjson',
+        },
         body: JSON.stringify({ vibrationText: currentVibText, accessToken: session?.access_token }),
       });
-      
-      const data = await response.json();
-      
+
       if (!response.ok) {
-        let errorMsg = '';
-        if (response.status === 403) {
-          errorMsg = data.error;
-        } else {
-          errorMsg = `# Error: ${data.error || 'Failed to align vibration'}`;
-        }
-        setAethericCode(errorMsg);
-        startTypingEffect(errorMsg);
-        setSeedOfTruth('');
-        setImagePrompt('');
-        setDescription('');
-        setArtifactId(null);
+        const data = await response.json().catch(() => ({}));
+        const message = data.error || 'Failed to align vibration';
+        startTypingEffect(`# Error: ${message}`);
+        setGenerationStatus('');
         return;
       }
+      if (!response.body) throw new Error('No response stream was returned.');
 
-      setAethericCode(data.aethericCode);
-      setSeedOfTruth(data.seedOfTruth);
-      setImagePrompt(data.imagePrompt);
-      setDescription(data.description);
-      
-      if (data.imageUrl) {
-        setCurrentImageUrl(data.imageUrl);
-      }
-      
-      if (data.id) {
-        setArtifactId(data.id);
-      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const handleLine = (line: string) => {
+        if (!line.trim()) return;
+        const event = JSON.parse(line) as { type: string; data: any };
+        const data = event.data || {};
 
-      startTypingEffect(data.aethericCode, () => {
-        executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.description, currentVibText, data.id, data.imageUrl);
-        playChimeSound();
-      });
-    } catch (e) {
-      startTypingEffect("# ERROR: Failed to reach the Source.");
+        if (event.type === 'stage') {
+          if (data.stage === 'text') setGenerationStatus('Generating your interpretation and Python code…');
+          else if (data.stage === 'saving') setGenerationStatus('Saving your private Akashic Record…');
+          else if (data.stage === 'image') setGenerationStatus('Text ready — generating the image…');
+        } else if (event.type === 'artifact') {
+          receivedArtifact = true;
+          setAethericCode(data.aethericCode);
+          setSeedOfTruth(data.seedOfTruth);
+          setImagePrompt(data.imagePrompt);
+          setDescription(data.description);
+          setCurrentImageUrl('');
+          if (data.id) setArtifactId(String(data.id));
+
+          // Show text immediately; image generation is still running on the server.
+          startTypingEffect(data.aethericCode, () => {
+            void executePythonCode(
+              data.aethericCode, data.seedOfTruth, data.imagePrompt,
+              data.description, currentVibText, data.id, undefined
+            );
+            playChimeSound();
+          });
+          void fetchAkashicRecords(true);
+          void refreshCredits();
+        } else if (event.type === 'image') {
+          if (data.imageUrl) {
+            setCurrentImageUrl(data.imageUrl);
+            setGenerationStatus('Image ready — loading your private image…');
+            void fetchAkashicRecords(true);
+          }
+        } else if (event.type === 'complete') {
+          completed = true;
+          setGenerationStatus(data.imageUrl ? '' : 'Text saved. Image unavailable for this transmutation.');
+          void fetchAkashicRecords(true);
+        } else if (event.type === 'error') {
+          if (!receivedArtifact) {
+            startTypingEffect(`# Error: ${data.error || 'Transmutation failed.'}`);
+          }
+          setGenerationStatus(receivedArtifact
+            ? 'Text was saved, but image processing did not finish.'
+            : '');
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) handleLine(line);
+      }
+      buffer += decoder.decode();
+      if (buffer.trim()) handleLine(buffer);
+      if (!receivedArtifact) {
+        throw new Error('The generation stream ended without an artifact.');
+      }
+      if (!completed) {
+        setGenerationStatus('Text saved; image processing may still be finishing. You can check your history.');
+        void fetchAkashicRecords(true);
+      }
+    } catch (error) {
+      console.error('Transmutation stream failed:', error);
+      if (receivedArtifact) {
+        setGenerationStatus('Text saved; connection to image generation was interrupted. Your record is in history.');
+        void fetchAkashicRecords(true);
+      } else {
+        startTypingEffect('# ERROR: Generation did not return an artifact. Please check your history before retrying.');
+        setGenerationStatus('');
+      }
     } finally {
       setIsTransmuting(false);
     }
@@ -922,7 +961,7 @@ sys.stderr = io.StringIO()
                             height={400}
                             objectFit="cover"
                             silentError
-                            onImageLoaded={!record.imageUrl ? () => backfillImageUrl(record.id, record.imagePrompt) : undefined}
+                            noFallback={true}
                           />
                         </div>
                       )}
@@ -942,6 +981,12 @@ sys.stderr = io.StringIO()
         <header className="mb-4 opacity-80 text-sm tracking-widest uppercase animate-golden-pulse text-center">
           --- Aetheric Code Scribe v2.0 ---
         </header>
+
+        {generationStatus && (
+          <p role="status" aria-live="polite" className="text-nebula/80 text-xs font-mono mb-3 text-center">
+            {generationStatus}
+          </p>
+        )}
 
         {loadingPyodide && (
           <div className="text-nebula text-xs animate-pulse mb-4 italic">
@@ -1015,7 +1060,7 @@ sys.stderr = io.StringIO()
 
                   {imagePrompt && (
                     <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${isCurrentDiary ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'}`}>
-                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={800} className="absolute inset-0 z-0" noFallback={isReplay} />
+                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={800} className="absolute inset-0 z-0" noFallback={true} />
                       <div className="scanline"></div>
 
                       {/* ── Image Prompt Copy Icon ── */}
