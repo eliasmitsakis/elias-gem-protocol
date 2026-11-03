@@ -275,7 +275,7 @@ async function runGeneration(vibrationText: string) {
   `;
 
   const result = await ai.models.generateContent({
-    model: 'gemini-3.7-flash', // Confirmed live on this key via /v1beta/models query (2026-07-22)
+    model: 'gemini-3.8-flash', // Stable model ID; 3.7 Flash is deprecated
     contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
   });
 
