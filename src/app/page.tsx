@@ -703,7 +703,7 @@ sys.stderr = io.StringIO()
     setDescription('');
     setArtifactId(null);
     const currentVibText = vibrationText;
-    startTypingEffect('# Aligning frequencies…\\n# Preparing transmute protocol…');
+    startTypingEffect('# Aligning frequencies…\n# Preparing transmute protocol…');
 
     let receivedArtifact = false;
     let completed = false;
@@ -781,7 +781,7 @@ sys.stderr = io.StringIO()
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop() || '';
         for (const line of lines) handleLine(line);
       }
