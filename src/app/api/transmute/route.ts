@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
+  const promptText = vibrationText;
   const userClient = createClient(supabaseUrl, anonKey);
   const { data: { user }, error: authError } = await userClient.auth.getUser(accessToken);
   if (authError || !user) {
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
   type Emit = (type: string, data: Record<string, unknown>) => void;
   const transmute = async (emit: Emit) => {
     emit('stage', { stage: 'text' });
-    const aiResult = await runGeneration(vibrationText);
+    const aiResult = await runGeneration(promptText);
 
     // Persist text first. Its record ID allows the browser to display the
     // artifact immediately and later load the image through the private proxy.
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
       .from('akashic_records')
       .insert({
         user_id: user.id,
-        vibrationtext: vibrationText,
+        vibrationtext: promptText,
         description: aiResult.description,
         aethericcode: aiResult.aethericCode,
         seedoftruth: aiResult.seedOfTruth,
