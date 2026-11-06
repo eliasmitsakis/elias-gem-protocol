@@ -45,7 +45,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Failed to verify your credits.' }, { status: 500 });
       }
 
-      currentCredits = profile?.credits ?? 5;
+      if (!profile) {
+        const { error: createError } = await adminClient
+          .from('profiles')
+          .insert({ id: user.id, credits: 5 });
+        if (createError && createError.code !== '23505') {
+          return NextResponse.json({ error: 'Failed to initialize credits.' }, { status: 500 });
+        }
+        currentCredits = 5;
+      } else {
+        currentCredits = profile.credits;
+      }
+
       if (currentCredits <= 0) {
         return NextResponse.json(
           { error: 'You have used all your transmutation credits.' },
@@ -58,8 +69,9 @@ export async function POST(req: Request) {
       if (!isAdmin) {
         await adminClient
           .from('profiles')
-          .update({ credits: currentCredits - 1 })
-          .eq('id', user.id);
+          .update({ credits: Math.max(0, currentCredits - 1) })
+          .eq('id', user.id)
+          .gt('credits', 0);
       }
     };
 

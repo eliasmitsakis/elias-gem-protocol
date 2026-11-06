@@ -42,4 +42,15 @@ ALTER FUNCTION public.handle_new_user() SET search_path = '';
 ALTER FUNCTION public.handle_updated_at() SET search_path = '';
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
 
+-- Lock down profiles privileges and optimize RLS policy.
+REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.profiles TO authenticated;
+ALTER POLICY "Users can view own profile"
+  ON public.profiles
+  TO authenticated
+  USING ((SELECT auth.uid()) = id);
+
+-- Index foreign key on akashic_records(user_id).
+CREATE INDEX IF NOT EXISTS idx_akashic_records_user_id ON public.akashic_records(user_id);
+
 COMMIT;

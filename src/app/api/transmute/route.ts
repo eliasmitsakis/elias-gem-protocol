@@ -100,8 +100,9 @@ export async function POST(req: Request) {
     if (!isAdmin) {
       const { error: deductionError } = await adminClient
         .from('profiles')
-        .update({ credits: currentCredits - 1 })
-        .eq('id', user.id);
+        .update({ credits: Math.max(0, currentCredits - 1) })
+        .eq('id', user.id)
+        .gt('credits', 0);
       if (deductionError) {
         console.error('Credit deduction failed:', deductionError);
       }
