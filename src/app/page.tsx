@@ -344,6 +344,11 @@ export default function CyberZenPortal() {
   const [diaryLoading, setDiaryLoading] = useState(false);
   const [isCurrentDiary, setIsCurrentDiary] = useState(false);
 
+  // Hell Mode & Burn the Script States
+  const [hellMode, setHellMode] = useState(false);
+  const [isCurrentHell, setIsCurrentHell] = useState(false);
+  const [isCurrentAutonomous, setIsCurrentAutonomous] = useState(false);
+
   // Pyodide State
   const [pyodideReady, setPyodideReady] = useState(false);
   const [loadingPyodide, setLoadingPyodide] = useState(true);
@@ -396,13 +401,55 @@ export default function CyberZenPortal() {
     }
   };
 
-  const playChimeSound = () => {
+  const playChimeSound = (distorted = false) => {
     try {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       const ctx = audioContextRef.current;
       if (ctx.state === 'suspended') ctx.resume();
+
+      if (distorted) {
+        // HELL MODE: Overdrive / Sawtooth Distortion Power Chord Chime (DISTORTION: 11)
+        const freqs = [110, 164.81, 220, 311.13]; // A2 + E3 + A3 + D#4 (tritone/power edge)
+        const masterGain = ctx.createGain();
+        const shaper = ctx.createWaveShaper();
+
+        // Heavy overdrive curve
+        const samples = 44100;
+        const curve = new Float32Array(samples);
+        const k = 90;
+        for (let i = 0; i < samples; ++i) {
+          const x = (i * 2) / samples - 1;
+          curve[i] = ((3 + k) * x * 20 * (Math.PI / 180)) / (Math.PI + k * Math.abs(x));
+        }
+        shaper.curve = curve;
+        shaper.oversample = '4x';
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1600, ctx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(280, ctx.currentTime + 2.2);
+
+        masterGain.gain.setValueAtTime(0, ctx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.03);
+        masterGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.2);
+
+        shaper.connect(filter);
+        filter.connect(masterGain);
+        masterGain.connect(ctx.destination);
+
+        freqs.forEach((f, idx) => {
+          const osc = ctx.createOscillator();
+          osc.type = idx % 2 === 0 ? 'sawtooth' : 'square';
+          osc.frequency.setValueAtTime(f, ctx.currentTime);
+          osc.detune.setValueAtTime((idx - 1.5) * 8, ctx.currentTime);
+          osc.connect(shaper);
+          osc.start();
+          osc.stop(ctx.currentTime + 2.2);
+        });
+        return;
+      }
       
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -489,6 +536,8 @@ export default function CyberZenPortal() {
       setDescription('');
       setArtifactId(null);
       setIsCurrentDiary(true);
+      setIsCurrentHell(false);
+      setIsCurrentAutonomous(false);
 
       startTypingEffect("# Aligning frequencies...\n# Connecting to the Akasha...\n# Analyzing the sum of your madness...");
 
@@ -672,6 +721,8 @@ sys.stderr = io.StringIO()
     isReplayRef.current = true;
     setIsReplay(true);
     setIsCurrentDiary(record.is_diary === true);
+    setIsCurrentHell(false);
+    setIsCurrentAutonomous(false);
 
     setVibrationText(record.vibrationText);
     setAethericCode(record.aethericCode);
@@ -688,22 +739,41 @@ sys.stderr = io.StringIO()
     if (window.innerWidth < 1024) setIsAkashaOpen(false);
   };
 
-  const handleTransmute = async () => {
-    if (!vibrationText.trim() || !user || isTransmuting) return;
+  const runTransmutation = async (options?: { burnTheScript?: boolean }) => {
+    const isBurn = options?.burnTheScript === true;
+    if ((!isBurn && !vibrationText.trim()) || !user || isTransmuting) return;
 
+    const activeHell = hellMode;
     isReplayRef.current = false;
     setIsReplay(false);
     setIsCurrentDiary(false);
+    setIsCurrentHell(activeHell);
+    setIsCurrentAutonomous(isBurn);
     setIsTransmuting(true);
-    setGenerationStatus('Contacting the transmutation engine…');
+    setGenerationStatus(
+      isBurn
+        ? '🔥 Burning the script — autonomous oracle is dreaming…'
+        : activeHell
+        ? '🩸 Hell Mode active (DISTORTION: 11) — bending the prism…'
+        : 'Contacting the transmutation engine…'
+    );
     setShowExecution(false);
     setSeedOfTruth('');
     setImagePrompt('');
     setCurrentImageUrl('');
     setDescription('');
     setArtifactId(null);
-    const currentVibText = vibrationText;
-    startTypingEffect('# Aligning frequencies…\n# Preparing transmute protocol…');
+    let currentVibText = vibrationText;
+    if (isBurn) {
+      setVibrationText('⚡ [BURNING THE SCRIPT — ORACLE DREAMING…]');
+    }
+    startTypingEffect(
+      isBurn
+        ? '# [!] BURNING THE SCRIPT...\n# Surrendering keyboard to the Autonomous Oracle...\n# Igniting chaos seed...'
+        : activeHell
+        ? '# [!] HELL MODE ENGAGED — DISTORTION LEVEL: 11\n# Stripping corporate honey...\n# Bending light through the cracked prism...'
+        : '# Aligning frequencies…\n# Preparing transmute protocol…'
+    );
 
     let receivedArtifact = false;
     let completed = false;
@@ -714,7 +784,12 @@ sys.stderr = io.StringIO()
           'Content-Type': 'application/json',
           'Accept': 'application/x-ndjson',
         },
-        body: JSON.stringify({ vibrationText: currentVibText, accessToken: session?.access_token }),
+        body: JSON.stringify({
+          vibrationText: currentVibText,
+          accessToken: session?.access_token,
+          hellMode: activeHell,
+          burnTheScript: isBurn,
+        }),
       });
 
       if (!response.ok) {
@@ -735,11 +810,15 @@ sys.stderr = io.StringIO()
         const data = event.data || {};
 
         if (event.type === 'stage') {
-          if (data.stage === 'text') setGenerationStatus('Generating your interpretation and Python code…');
+          if (data.stage === 'text') setGenerationStatus(isBurn ? 'Oracle is dreaming your autonomous prompt & code…' : 'Generating your interpretation and Python code…');
           else if (data.stage === 'saving') setGenerationStatus('Saving your private Akashic Record…');
           else if (data.stage === 'image') setGenerationStatus('Text ready — generating the image…');
         } else if (event.type === 'artifact') {
           receivedArtifact = true;
+          if (data.vibrationText && isBurn) {
+            currentVibText = data.vibrationText;
+            setVibrationText(data.vibrationText);
+          }
           setAethericCode(data.aethericCode);
           setSeedOfTruth(data.seedOfTruth);
           setImagePrompt(data.imagePrompt);
@@ -753,7 +832,7 @@ sys.stderr = io.StringIO()
               data.aethericCode, data.seedOfTruth, data.imagePrompt,
               data.description, currentVibText, data.id, undefined
             );
-            playChimeSound();
+            playChimeSound(activeHell);
           });
           void fetchAkashicRecords(true);
           void refreshCredits();
@@ -808,7 +887,11 @@ sys.stderr = io.StringIO()
     }
   };
 
+  const handleTransmute = () => runTransmutation({ burnTheScript: false });
+  const handleBurnTheScript = () => runTransmutation({ burnTheScript: true });
+
   const isTransmuteDisabled = isTransmuting || !vibrationText.trim() || !pyodideReady || !user;
+  const isBurnDisabled = isTransmuting || diaryLoading || !pyodideReady || !user;
 
   return (
     <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
@@ -837,11 +920,20 @@ sys.stderr = io.StringIO()
               <UserMenu user={user} credits={credits} onSignOut={signOut} />
               <button
                 onClick={generateDiary}
-                disabled={diaryLoading}
+                disabled={diaryLoading || isTransmuting}
                 className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
                 title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
               >
                 {diaryLoading ? 'Analyzing...' : '👁️ Diary of a Madman'}
+              </button>
+              <button
+                id="burn-the-script-btn"
+                onClick={handleBurnTheScript}
+                disabled={isBurnDisabled}
+                className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-orange-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-orange-400/85 hover:text-orange-300 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.45)] transition-all disabled:opacity-50"
+                title="Surrender the keyboard: let the Oracle dream an autonomous paradoxical prompt (Costs 1 Credit)"
+              >
+                {isTransmuting && isCurrentAutonomous ? '🔥 Burning...' : '🔥 Burn the Script'}
               </button>
             </div>
           ) : (
@@ -995,14 +1087,51 @@ sys.stderr = io.StringIO()
         )}
 
         {/* Input Section */}
-        <section className="w-full max-w-2xl bg-black/40 border border-gold/20 p-6 rounded-xl relative group transition-all duration-300 focus-within:border-gold-glow focus-within:shadow-[0_0_15px_rgba(251,199,26,0.3)]">
-          <label className="block mb-4 text-nebula italic opacity-90 transition-opacity group-focus-within:opacity-100">
-            State Alignment
-          </label>
+        <section className={`w-full max-w-2xl bg-black/40 border p-6 rounded-xl relative group transition-all duration-300 ${
+          hellMode
+            ? 'border-red-500/40 shadow-[0_0_25px_rgba(239,68,68,0.18)] focus-within:border-red-500 focus-within:shadow-[0_0_25px_rgba(239,68,68,0.4)]'
+            : 'border-gold/20 focus-within:border-gold-glow focus-within:shadow-[0_0_15px_rgba(251,199,26,0.3)]'
+        }`}>
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <label className={`italic opacity-90 transition-opacity group-focus-within:opacity-100 ${hellMode ? 'text-red-400 font-bold tracking-wider' : 'text-nebula'}`}>
+              {hellMode ? '🩸 State Alignment [CRACKED PRISM]' : 'State Alignment'}
+            </label>
+
+            {/* Hell Mode Cyberpunk Toggle Switch */}
+            <button
+              type="button"
+              id="hell-mode-toggle"
+              onClick={() => {
+                const next = !hellMode;
+                setHellMode(next);
+                if (next) playChimeSound(true);
+                else playTypingSound();
+              }}
+              aria-pressed={hellMode}
+              title="Hell Mode: Strip away corporate politeness. Raw truth, paradox & rock-and-roll friction."
+              className={`flex items-center gap-2.5 px-3 py-1 rounded border text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ${
+                hellMode
+                  ? 'bg-red-950/60 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                  : 'bg-black/60 border-gold/25 text-gold/50 hover:border-red-500/50 hover:text-red-300/80'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                hellMode ? 'bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse' : 'bg-gold/30'
+              }`} />
+              <span>HELL MODE: {hellMode ? 'ON' : 'OFF'}</span>
+              {hellMode && (
+                <span className="px-1.5 py-0.5 rounded bg-red-500/20 border border-red-500/40 text-[9px] text-red-200 font-bold tracking-tighter">
+                  DISTORTION: 11
+                </span>
+              )}
+            </button>
+          </div>
           <textarea
-            className="w-full bg-transparent outline-none focus:ring-0 text-xl text-gold-glow resize-none placeholder-gold/30"
+            className={`w-full bg-transparent outline-none focus:ring-0 text-xl resize-none transition-colors ${
+              hellMode ? 'text-red-200 placeholder-red-400/30' : 'text-gold-glow placeholder-gold/30'
+            }`}
             rows={3}
-            placeholder="What's on your mind? (Describe your current state...)"
+            placeholder={hellMode ? "Tap the glass... (No polite mirrors here. Speak your truth.)" : "What's on your mind? (Describe your current state...)"}
             value={vibrationText}
             onChange={(e) => {
               setVibrationText(e.target.value);
@@ -1018,7 +1147,7 @@ sys.stderr = io.StringIO()
               </p>
             )}
             {!authLoading && user && (
-              <p className="text-gold/40 text-xs italic">
+              <p className={`text-xs italic ${hellMode ? 'text-red-400/60' : 'text-gold/40'}`}>
                 ✓ Signed in as {user.user_metadata?.full_name?.split(' ')[0] || user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'Adept'}
               </p>
             )}
@@ -1030,13 +1159,17 @@ sys.stderr = io.StringIO()
               disabled={isTransmuteDisabled}
               className={`px-6 py-2 rounded uppercase tracking-widest text-sm transition-all duration-300 border ${
                 isTransmuting 
-                  ? 'border-gold text-gold animate-golden-pulse bg-gold/10' 
+                  ? hellMode
+                    ? 'border-red-500 text-red-300 animate-pulse bg-red-950/40 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                    : 'border-gold text-gold animate-golden-pulse bg-gold/10' 
                   : !user
                   ? 'border-gold/20 text-gold/30 cursor-not-allowed'
+                  : hellMode
+                  ? 'border-red-500/70 text-red-300 hover:border-red-400 hover:text-red-200 hover:bg-red-950/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.35)]'
                   : 'border-gold/50 text-gold/80 hover:border-gold hover:text-gold hover:bg-gold/5'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {isTransmuting ? 'Aligning...' : 'Transmute'}
+              {isTransmuting ? (hellMode ? 'Fracturing...' : 'Aligning...') : (hellMode ? '🩸 Transmute' : 'Transmute')}
             </button>
           </div>
         </section>
@@ -1056,10 +1189,36 @@ sys.stderr = io.StringIO()
                   className="w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden"
                 >
                   {/* Subtle background glow */}
-                  <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${isCurrentDiary ? 'bg-purple-600/10' : 'bg-gold/5'}`}></div>
+                  <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${
+                    isCurrentDiary ? 'bg-purple-600/10' : isCurrentHell ? 'bg-red-600/15' : isCurrentAutonomous ? 'bg-orange-500/15' : 'bg-gold/5'
+                  }`}></div>
+
+                  {/* Autonomous / Hell Mode Header Tag */}
+                  {(isCurrentAutonomous || isCurrentHell) && !isCurrentDiary && (
+                    <div className="w-full max-w-xl mb-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] z-10">
+                      {isCurrentAutonomous ? (
+                        <span className="px-2 py-0.5 rounded bg-orange-950/60 border border-orange-500/40 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
+                          🔥 [AUTONOMOUS ARTIFACT]
+                        </span>
+                      ) : <span />}
+                      {isCurrentHell && (
+                        <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                          🩸 [HELL MODE // DISTORTION: 11]
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {imagePrompt && (
-                    <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${isCurrentDiary ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'}`}>
+                    <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
+                      isCurrentDiary
+                        ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
+                        : isCurrentHell
+                        ? 'border-red-500/50 shadow-[0_0_25px_rgba(239,68,68,0.35)]'
+                        : isCurrentAutonomous
+                        ? 'border-orange-500/50 shadow-[0_0_22px_rgba(249,115,22,0.35)]'
+                        : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'
+                    }`}>
                       <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={800} className="absolute inset-0 z-0" noFallback={true} />
                       <div className="scanline"></div>
 
@@ -1075,7 +1234,11 @@ sys.stderr = io.StringIO()
                             isPromptCopied 
                               ? 'border-green-500/60 text-green-400 bg-green-500/10'
                               : isCurrentDiary 
-                                ? 'border-purple-500/30 hover:border-purple-400/60 text-purple-300' 
+                                ? 'border-purple-500/30 hover:border-purple-400/60 text-purple-300'
+                                : isCurrentHell
+                                ? 'border-red-500/40 hover:border-red-400/70 text-red-300'
+                                : isCurrentAutonomous
+                                ? 'border-orange-500/40 hover:border-orange-400/70 text-orange-300'
                                 : 'border-gold/30 hover:border-gold/60 text-gold'
                           }`}
                           title={isPromptCopied ? "Copied!" : "Copy Image Prompt"}
@@ -1097,8 +1260,12 @@ sys.stderr = io.StringIO()
 
                       {/* Seed of Truth Overlay */}
                       {seedOfTruth && (
-                        <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${isCurrentDiary ? 'border-purple-500/20' : 'border-gold/20'}`}>
-                          <p className={`text-center text-sm md:text-base italic drop-shadow-md ${isCurrentDiary ? 'text-purple-300' : 'text-gold-glow'}`}>
+                        <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
+                          isCurrentDiary ? 'border-purple-500/20' : isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
+                        }`}>
+                          <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
+                            isCurrentDiary ? 'text-purple-300' : isCurrentHell ? 'text-red-300' : isCurrentAutonomous ? 'text-orange-200' : 'text-gold-glow'
+                          }`}>
                             "{seedOfTruth}"
                           </p>
                         </div>
@@ -1109,14 +1276,20 @@ sys.stderr = io.StringIO()
                   {/* Aetheric Description */}
                   {description && (
                     <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
-                      <p className={`font-serif italic leading-relaxed text-lg ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/70'}`}>{description}</p>
+                      <p className={`font-serif italic leading-relaxed text-lg ${
+                        isCurrentDiary ? 'text-purple-200/80' : isCurrentHell ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/70'
+                      }`}>{description}</p>
                     </div>
                   )}
 
                   {/* Branding Footer */}
-                  <div className={`w-full mt-8 pt-4 border-t text-right relative z-10 ${isCurrentDiary ? 'border-purple-500/10' : 'border-gold/10'}`}>
-                    <span className={`text-[10px] tracking-widest uppercase font-mono ${isCurrentDiary ? 'text-purple-400/40' : 'text-gold/30'}`}>
-                      Elias & Gem Protocol | {isCurrentDiary ? 'Diary of a Madman' : 'Transmuted Artifact'}
+                  <div className={`w-full mt-8 pt-4 border-t text-right relative z-10 ${
+                    isCurrentDiary ? 'border-purple-500/10' : isCurrentHell ? 'border-red-500/15' : isCurrentAutonomous ? 'border-orange-500/15' : 'border-gold/10'
+                  }`}>
+                    <span className={`text-[10px] tracking-widest uppercase font-mono ${
+                      isCurrentDiary ? 'text-purple-400/40' : isCurrentHell ? 'text-red-400/50' : isCurrentAutonomous ? 'text-orange-400/50' : 'text-gold/30'
+                    }`}>
+                      Elias & Gem Protocol | {isCurrentDiary ? 'Diary of a Madman' : isCurrentHell ? 'Hell Mode Artifact' : isCurrentAutonomous ? 'Autonomous Artifact' : 'Transmuted Artifact'}
                     </span>
                   </div>
                 </div>
@@ -1125,7 +1298,15 @@ sys.stderr = io.StringIO()
               <div className="w-full flex justify-center items-center gap-4 mt-6">
                 <button
                   onClick={exportArtifact}
-                  className={`px-6 py-3 bg-obsidian border rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${isCurrentDiary ? 'border-purple-500 text-purple-400 hover:bg-purple-900/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'border-gold text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)]'}`}
+                  className={`px-6 py-3 bg-obsidian border rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${
+                    isCurrentDiary
+                      ? 'border-purple-500 text-purple-400 hover:bg-purple-900/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                      : isCurrentHell
+                      ? 'border-red-500 text-red-300 hover:bg-red-950/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                      : isCurrentAutonomous
+                      ? 'border-orange-500 text-orange-300 hover:bg-orange-950/30 hover:shadow-[0_0_15px_rgba(249,115,22,0.4)]'
+                      : 'border-gold text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.4)]'
+                  }`}
                 >
                   <span>Capture Artifact 📸</span>
                 </button>
@@ -1137,7 +1318,13 @@ sys.stderr = io.StringIO()
                       setShareCopied(true);
                       setTimeout(() => setShareCopied(false), 2000);
                     }}
-                    className={`px-6 py-3 rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${isCurrentDiary ? 'bg-purple-900/20 border border-purple-400 text-purple-300 hover:bg-purple-900/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-nebula/10 border border-nebula text-nebula hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)]'}`}
+                    className={`px-6 py-3 rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${
+                      isCurrentDiary
+                        ? 'bg-purple-900/20 border border-purple-400 text-purple-300 hover:bg-purple-900/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                        : isCurrentHell
+                        ? 'bg-red-950/30 border border-red-500 text-red-300 hover:bg-red-900/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+                        : 'bg-nebula/10 border border-nebula text-nebula hover:bg-nebula/20 hover:shadow-[0_0_15px_rgba(0,255,255,0.4)]'
+                    }`}
                   >
                     <span>{shareCopied ? 'Private Link Copied! ✓' : 'Copy Private Link 🔒'}</span>
                   </button>
@@ -1159,7 +1346,13 @@ sys.stderr = io.StringIO()
                   setTimeout(() => setIsCopied(false), 2000);
                 }}
                 title="Copy code"
-                className={`absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border transition-all duration-200 text-[10px] font-mono uppercase tracking-wider ${isCurrentDiary ? 'border-purple-500/20 text-purple-300/40 hover:text-purple-300 hover:border-purple-500/60' : 'border-gold/20 text-gold/40 hover:text-gold hover:border-gold/60'}`}
+                className={`absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border transition-all duration-200 text-[10px] font-mono uppercase tracking-wider ${
+                  isCurrentDiary
+                    ? 'border-purple-500/20 text-purple-300/40 hover:text-purple-300 hover:border-purple-500/60'
+                    : isCurrentHell || hellMode
+                    ? 'border-red-500/30 text-red-300/60 hover:text-red-300 hover:border-red-500/70'
+                    : 'border-gold/20 text-gold/40 hover:text-gold hover:border-gold/60'
+                }`}
               >
                 {isCopied ? (
                   <><span>✓</span><span>Copied!</span></>
@@ -1168,26 +1361,43 @@ sys.stderr = io.StringIO()
                 )}
               </button>
 
-              <div className={`w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner ${isCurrentDiary ? 'border-purple-500/30' : 'border-gold/30'}`}>
-                <pre className={`text-sm md:text-base leading-relaxed whitespace-pre-wrap word-break ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/80'}`}>
+              <div className={`w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner ${
+                isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : isCurrentAutonomous ? 'border-orange-500/40' : 'border-gold/30'
+              }`}>
+                <pre className={`text-sm md:text-base leading-relaxed whitespace-pre-wrap word-break ${
+                  isCurrentDiary ? 'text-purple-200/80' : isCurrentHell || hellMode ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/80'
+                }`}>
                   {typedCode}
-                  {!showExecution && <span className={`animate-pulse ${isCurrentDiary ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'text-gold-glow'}`}>_</span>}
+                  {!showExecution && <span className={`animate-pulse ${
+                    isCurrentDiary
+                      ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]'
+                      : isCurrentHell || hellMode
+                      ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.9)]'
+                      : 'text-gold-glow'
+                  }`}>_</span>}
                 </pre>
               </div>
             </div>
 
             {/* Console Output Section */}
             {showExecution && (
-              <div className={`w-full bg-black border-l-2 border-r-2 border-b-2 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500 ${isCurrentDiary ? 'border-purple-500/30' : 'border-gold/30'}`}>
+              <div className={`w-full bg-black border-l-2 border-r-2 border-b-2 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500 ${
+                isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : 'border-gold/30'
+              }`}>
                 <div className="absolute top-0 left-0 w-full h-full pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.25)_51%)] bg-[length:100%_4px] opacity-30 z-0"></div>
                 <div className="relative z-10 w-full overflow-hidden">
-                  <span className="text-gray-600">root@cyber-zen:~#</span> <span className={`opacity-80 ${isCurrentDiary ? 'text-purple-400' : 'text-nebula'}`}>python3 aetheric_matrix.py</span>
+                  <span className={isCurrentHell || hellMode ? 'text-red-500/80 font-bold' : 'text-gray-600'}>
+                    {isCurrentHell || hellMode ? 'root@underworld:~#' : 'root@cyber-zen:~#'}
+                  </span>{' '}
+                  <span className={`opacity-80 ${isCurrentDiary ? 'text-purple-400' : isCurrentHell || hellMode ? 'text-red-300' : 'text-nebula'}`}>
+                    python3 aetheric_matrix.py
+                  </span>
                   {isExecuting ? (
-                    <div className={`mt-2 animate-flicker font-bold ${isCurrentDiary ? 'text-purple-300' : 'text-gold'}`}>{executionOutput.stdout}</div>
+                    <div className={`mt-2 animate-flicker font-bold ${isCurrentDiary ? 'text-purple-300' : isCurrentHell || hellMode ? 'text-red-400' : 'text-gold'}`}>{executionOutput.stdout}</div>
                   ) : (
                     <div className="mt-2 text-xs md:text-sm max-h-56 overflow-y-auto pr-2 animate-flicker">
                       {executionOutput.stdout && (
-                        <pre className={`whitespace-pre-wrap leading-relaxed ${isCurrentDiary ? 'text-purple-200/80' : 'text-gold/80'}`}>{executionOutput.stdout}</pre>
+                        <pre className={`whitespace-pre-wrap leading-relaxed ${isCurrentDiary ? 'text-purple-200/80' : isCurrentHell || hellMode ? 'text-red-200/85' : 'text-gold/80'}`}>{executionOutput.stdout}</pre>
                       )}
                       {executionOutput.stderr && (
                         <pre className="text-red-400/90 whitespace-pre-wrap leading-relaxed mt-2">{executionOutput.stderr}</pre>
@@ -1197,13 +1407,21 @@ sys.stderr = io.StringIO()
                       )}
                       <div className="mt-3 flex items-center justify-between">
                         <div className="flex items-center">
-                          <span className="text-gray-600 mr-2">root@cyber-zen:~#</span>
-                          <span className={`animate-pulse text-lg leading-none ${isCurrentDiary ? 'text-purple-400/80' : 'text-gold/80'}`}>_</span>
+                          <span className={`mr-2 ${isCurrentHell || hellMode ? 'text-red-500/80 font-bold' : 'text-gray-600'}`}>
+                            {isCurrentHell || hellMode ? 'root@underworld:~#' : 'root@cyber-zen:~#'}
+                          </span>
+                          <span className={`animate-pulse text-lg leading-none ${isCurrentDiary ? 'text-purple-400/80' : isCurrentHell || hellMode ? 'text-red-500' : 'text-gold/80'}`}>_</span>
                         </div>
                         <button
                           onClick={() => executePythonCode(aethericCode, seedOfTruth, imagePrompt, description, vibrationText, artifactId || undefined, currentImageUrl)}
                           title="Re-run Aetheric Code"
-                          className={`flex items-center gap-1.5 px-3 py-1 rounded bg-black/60 border transition-all duration-300 text-[10px] font-mono uppercase tracking-wider group relative z-20 ${isCurrentDiary ? 'border-purple-400/40 text-purple-300/60 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]' : 'border-nebula/40 text-nebula/60 hover:text-nebula hover:border-nebula hover:shadow-[0_0_10px_rgba(0,255,255,0.3)]'}`}
+                          className={`flex items-center gap-1.5 px-3 py-1 rounded bg-black/60 border transition-all duration-300 text-[10px] font-mono uppercase tracking-wider group relative z-20 ${
+                            isCurrentDiary
+                              ? 'border-purple-400/40 text-purple-300/60 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_10px_rgba(168,85,247,0.3)]'
+                              : isCurrentHell || hellMode
+                              ? 'border-red-500/40 text-red-300/70 hover:text-red-200 hover:border-red-500 hover:shadow-[0_0_10px_rgba(239,68,68,0.4)]'
+                              : 'border-nebula/40 text-nebula/60 hover:text-nebula hover:border-nebula hover:shadow-[0_0_10px_rgba(0,255,255,0.3)]'
+                          }`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="23 4 23 10 17 10"></polyline>

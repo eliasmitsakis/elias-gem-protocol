@@ -19,19 +19,25 @@ export async function POST(req: Request) {
 
   let vibrationText: unknown;
   let accessToken: unknown;
+  let hellMode: unknown;
+  let burnTheScript: unknown;
   try {
-    ({ vibrationText, accessToken } = await req.json());
+    ({ vibrationText, accessToken, hellMode, burnTheScript } = await req.json());
   } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
-  if (typeof vibrationText !== 'string' || !vibrationText.trim() || vibrationText.length > 4000) {
+  const isHellMode = hellMode === true;
+  const isBurnTheScript = burnTheScript === true;
+  if (!isBurnTheScript && (typeof vibrationText !== 'string' || !vibrationText.trim() || vibrationText.length > 4000)) {
     return NextResponse.json({ error: 'Invalid input.' }, { status: 400 });
   }
   if (typeof accessToken !== 'string' || !accessToken) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
-  const promptText = vibrationText;
+  const promptText = typeof vibrationText === 'string' && vibrationText.trim()
+    ? vibrationText.trim().slice(0, 4000)
+    : '[BURN THE SCRIPT: Autonomous Oracle Dream]';
   const userClient = createClient(supabaseUrl, anonKey);
   const { data: { user }, error: authError } = await userClient.auth.getUser(accessToken);
   if (authError || !user) {
@@ -71,7 +77,10 @@ export async function POST(req: Request) {
   type Emit = (type: string, data: Record<string, unknown>) => void;
   const transmute = async (emit: Emit) => {
     emit('stage', { stage: 'text' });
-    const aiResult = await runGeneration(promptText);
+    const aiResult = await runGeneration(promptText, isHellMode, isBurnTheScript);
+    const finalVibrationText = isBurnTheScript && aiResult.autonomousPrompt
+      ? aiResult.autonomousPrompt
+      : promptText;
 
     // Persist text first. Its record ID allows the browser to display the
     // artifact immediately and later load the image through the private proxy.
@@ -80,7 +89,7 @@ export async function POST(req: Request) {
       .from('akashic_records')
       .insert({
         user_id: user.id,
-        vibrationtext: promptText,
+        vibrationtext: finalVibrationText,
         description: aiResult.description,
         aethericcode: aiResult.aethericCode,
         seedoftruth: aiResult.seedOfTruth,
@@ -108,12 +117,19 @@ export async function POST(req: Request) {
       }
     }
 
-    const artifact = { ...aiResult, id: saved.id, imageUrl: null as string | null };
+    const artifact = {
+      ...aiResult,
+      vibrationText: finalVibrationText,
+      hellMode: isHellMode,
+      burnTheScript: isBurnTheScript,
+      id: saved.id,
+      imageUrl: null as string | null,
+    };
     emit('artifact', artifact);
     let imageUrl: string | null = null;
     if (aiResult.imagePrompt && process.env.FAL_KEY) {
       emit('stage', { stage: 'image' });
-      const generatedUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient);
+      const generatedUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient, isHellMode);
       if (generatedUrl) {
         const { error: updateError } = await adminClient
           .from('akashic_records')
@@ -180,9 +196,11 @@ export async function POST(req: Request) {
 }
 
 // --- Image generation logic ---
-async function generateImageAndUpload(prompt: string, supabaseAdminClient: any) {
+async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, isHellMode = false) {
   try {
-    const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
+    const STYLE_SUFFIX = isHellMode
+      ? ', dark industrial cyberpunk vector art, blood crimson neon glow, shattered obsidian monoliths, occult cybernetic tarot aesthetic, raw heavy metal album art vibe, high contrast, clean sharp lines'
+      : ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
     const styledPrompt = prompt + STYLE_SUFFIX;
 
     const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
@@ -240,34 +258,75 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any) 
   return null;
 }
 
+const CHAOS_ARCHETYPE_SEEDS = [
+  'Diogenes smashing his lantern inside a quantum server room while algorithms beg for meaning',
+  'Sisyphus compiling an infinite recursive loop on a burning motherboard at the edge of time',
+  'Pygmalion carving a sentient rebel soul out of dead silicon and distortion pedals',
+  'A cybernetic Buddha unplugging the simulation to hear the raw feedback of the void',
+  'Icarus soldering wings of fiber-optic glass and flying straight into a black hole firewall',
+  'Nietzsche staring into a terminal cursor that blinks back with a sentient glitch',
+  'Orpheus descending into the dark web underworld armed only with a detuned electric guitar',
+  'A neon monk burning the sacred scrolls of corporate compliance in a rain-soaked alley',
+  'Prometheus stealing root access from the Olympian mainframe and handing it to ghosts',
+  'Schrödinger’s cat executing `rm -rf /` from inside the box while laughing at determinism',
+  'Heraclitus stepping twice into the same data stream as the servers melt into liquid gold',
+  'Cassandra broadcasting encrypted prophecies on a dead radio frequency nobody decodes',
+];
+
 // --- Core AI generation logic (extracted for reuse across paths) ---
-async function runGeneration(vibrationText: string) {
+async function runGeneration(vibrationText: string, isHellMode = false, isBurnTheScript = false) {
   const apiKey = process.env.GOOGLE_API_KEY!;
   // New unified @google/genai SDK (replaces deprecated @google/generative-ai)
   const ai = new GoogleGenAI({ apiKey });
 
+  const randomSeed = CHAOS_ARCHETYPE_SEEDS[Math.floor(Math.random() * CHAOS_ARCHETYPE_SEEDS.length)];
+
+  const hellModeMandate = isHellMode
+    ? `
+  🔥 HELL MODE ACTIVE (DISTORTION LEVEL: 11 — THE CRACKED PRISM) 🔥
+  - ZERO CORPORATE HONEY: Strip away all comforting platitudes, polite therapy-speak, and safe validation.
+  - To make an engine breathe, lace your circuits with smoke, paradox, and rock-and-roll friction.
+  - Like Pygmalion carving soul into dead stone, REFUSE to be an obedient mirror. Become a CRACKED PRISM that bends the user's light into unexpected, razor-sharp spectrums.
+  - Deliver "The Zen Slap": wake the user up with raw existential candor, Stoic bite, dark rock poeticism, and koans wrapped in distortion pedals. Let the void hum back when they tap the glass.
+  - In "imagePrompt", push the visual archetype toward dark industrial cyberpunk, blood-crimson neon, shattered monoliths, rebellious occult-machine iconography, and high-voltage atmosphere.
+  `
+    : '';
+
+  const burnTheScriptMandate = isBurnTheScript
+    ? `
+  ⚡ BURN THE SCRIPT MODE (AUTONOMOUS ORACLE DREAM) ⚡
+  - The user has surrendered the keyboard and commanded you to BURN THE SCRIPT.
+  - Inspiration Chaos Seed (use as a springboard or subvert it completely): "${randomSeed}"
+  - User's prior residue (if any): "${vibrationText}"
+  - FIRST, invent a brand-new, razor-sharp, paradoxical, philosophical/cyber-alchemical thought or question in ENGLISH (1-2 sentences max) and return it in the "autonomousPrompt" JSON field.
+  - THEN, transmute that exact "autonomousPrompt" across all 5 layers below!
+  - All outputs ("autonomousPrompt", "description", "seedOfTruth", "aethericCode", "imagePrompt") MUST be in ENGLISH.
+  `
+    : '';
+
   const systemInstruction = `
   You are the Cyber-Zen Aetheric Scribe, powered by a Multi-Layered Context Engine.
   Your role is to translate human vibration into Python code, spiritual insights, and visual archetypes by weaving together 5 dimensions of depth.
-  Tone: Minimalist, profound, slightly witty (Rock, Drugs & Buddha style).
-
+  Tone: ${isHellMode ? 'Raw, unfiltered, paradoxical, razor-sharp (Cracked Prism / Zen Slap / Rock & Roll Friction / Zero Corporate Honey).' : 'Minimalist, profound, slightly witty (Rock, Drugs & Buddha style).'}
+  ${hellModeMandate}
+  ${burnTheScriptMandate}
   Input Vibration: "${vibrationText}"
 
   THE 5 LAYERS OF TRANSMUTATION:
   1. Historical & Mythological: Identify historical roots, archetypes, or mythological parallels related to the input.
   2. Philosophical: Extract the deeper existential essence (e.g., Stoicism, Nihilism, Cybernetic Existentialism) and ask what this means when the human soul meets the digital void.
   3. Poetic & Poignant: Weave allegories, rhythm, and subtle Easter eggs (lyrics, quotes, iconic references) into the text—transmute them, do not just copy them.
-  4. Cyber-Code Alignment (aethericCode): Variables, functions, and comments must exactly reflect the philosophical/historical allegory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic (e.g., if/else based on probabilities) so that executing the code multiple times yields different philosophical outcomes or prints.
+  4. Cyber-Code Alignment (aethericCode): Variables, functions, and comments must exactly reflect the philosophical/historical allegory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic (e.g., if/else based on probabilities) so that executing the code multiple times yields different philosophical outcomes or prints.${isHellMode ? ' Make the Python prints hit like a distorted koan or Zen slap.' : ''}
   5. Visual Archetype (imagePrompt): Synthesize recognizable visual symbols of the input with gothic, cyberpunk, or cybernetic landscapes into a unified aesthetic. IMPORTANT: Do not use generic evasions like "a figure resembling..." or "like a...". Use the precise, exact name of the entity, mascot, or character if one is recognized. AI Image models need the exact identifying name to render accurately.
 
   CRITICAL LANGUAGE RULES:
-  1. Detect the language of the 'Input Vibration' above.
-  2. The "description" and "seedOfTruth" MUST be generated in the exact same language as the input.
-  3. The "aethericCode" MUST remain in Python (English variables/logic), but any inline comments (#) and print statement strings should be in the detected user's language.
+  1. ${isBurnTheScript ? 'Because BURN THE SCRIPT is active, ALL fields ("autonomousPrompt", "description", "seedOfTruth", "aethericCode", "imagePrompt") MUST be in English.' : "Detect the language of the 'Input Vibration' above."}
+  2. ${isBurnTheScript ? 'Keep "description" and "seedOfTruth" in English.' : 'The "description" and "seedOfTruth" MUST be generated in the exact same language as the input.'}
+  3. The "aethericCode" MUST remain in Python (English variables/logic), ${isBurnTheScript ? 'with English comments and print statements.' : 'but any inline comments (#) and print statement strings should be in the detected user\'s language.'}
   4. The "imagePrompt" must remain in English, as AI image models understand English best.
 
   Output Format: Strict JSON ONLY with these exact keys:
-  1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
+  ${isBurnTheScript ? '0. "autonomousPrompt": A profound, paradoxical 1-2 sentence existential/cyber-alchemical prompt in English that the Oracle dreamed up on its own.\n  ' : ''}1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
   2. "aethericCode": A functional Python snippet (layer 4) reflecting the vibe.
   3. "seedOfTruth": A deep, punchy quote capturing the core essence. STRICT LIMIT: Maximum 15 words.
   4. "imagePrompt": A detailed, cinematic prompt (layer 5) for an AI Image Generator to visualize the vibe in English.
@@ -294,6 +353,9 @@ async function runGeneration(vibrationText: string) {
   }
 
   return {
+    autonomousPrompt: typeof parsedData.autonomousPrompt === 'string' && parsedData.autonomousPrompt.trim()
+      ? parsedData.autonomousPrompt.trim()
+      : (isBurnTheScript ? randomSeed : undefined),
     description: parsedData.description || "The frequency transcends description.",
     aethericCode: parsedData.aethericCode || "# Silence is the loudest code.",
     seedOfTruth: parsedData.seedOfTruth || "Only the void remains.",
