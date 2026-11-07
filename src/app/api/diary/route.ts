@@ -132,7 +132,8 @@ export async function POST(req: Request) {
     1. "assessment": A ${isHellMode ? 'raw, uncut, philosophical & psychological dissection (Cracked Prism / Zen Slap style)' : 'poetic, philosophical evaluation'} of their mental trajectory based on their recent prompts. STRICT LIMIT: Maximum 4 sentences.
     2. "aethericCode": A functional Python snippet that reflects their mental trajectory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic so executing it multiple times yields different outcomes.${isHellMode ? ' Make the prints hit like a distorted koan.' : ''}
     3. "seedOfTruth": A deep, punchy quote summarizing their journey. STRICT LIMIT: Maximum 15 words.
-    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the essence of their recent journey (${isHellMode ? 'dark industrial cyberpunk, blood-crimson and violet abyssal neon, shattered mirrors, occult cybernetic tarot aesthetic' : 'gothic, cyberpunk, or cybernetic aesthetics'}). Keep it evocative and vivid.
+    4. "archetypeTitle": A unique 1 to 3 word UPPERCASE Tarot card title that names the user's current psychological/spiritual archetype based on their specific recent entries (e.g. "THE SILICON HERMIT", "THE CRACKED PRISM", "THE VOID BUTCHER", "THE BURNING MONK"). Never use generic titles; tailor it to their history.
+    5. "imagePrompt": A vivid, specific description of the central figure, pose, and symbolic objects inside the Tarot card, synthesized directly from the unique themes, metaphors, and obsessions in their recent entries. Do NOT repeat generic boilerplate—describe the exact visual allegory of THEIR history.
 
     Do NOT include any markdown code blocks wrapping the JSON. Just output the raw JSON object.
     `;
@@ -140,21 +141,35 @@ export async function POST(req: Request) {
     const result = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
+      config: { responseMimeType: 'application/json' },
     });
 
     const textResponse = result.text ?? '';
     const cleanJsonString = textResponse.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
     
-    let parsedData;
+    let parsedData: any = {};
     try {
       parsedData = JSON.parse(cleanJsonString);
     } catch (parseError) {
-      const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-      parsedData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      try {
+        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+        parsedData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      } catch {
+        parsedData = {};
+      }
     }
 
-    const assessment = parsedData.assessment || "The void stares back, revealing a journey that transcends words.";
-    const imagePrompt = parsedData.imagePrompt || "An abstract representation of a fragmented digital mind reaching for enlightenment.";
+    const assessment = parsedData.assessment || parsedData.description || "The void stares back, revealing a journey that transcends words.";
+    const archetypeTitle = String(parsedData.archetypeTitle || (isHellMode ? 'THE CRACKED PRISM' : 'THE SEEKER'))
+      .replace(/["']/g, '')
+      .trim()
+      .toUpperCase();
+    const dynamicSymbolism = parsedData.imagePrompt || "A cybernetic mystic with a third-eye circuit staring into a fractured mirror";
+    const imagePrompt = `A dark occult cyberpunk Tarot card portrait, ornate symmetrical filigree gothic border, glowing cybernetic halo, ancient mystical runes, nameplate banner at the bottom with archetype title "${archetypeTitle}", dark fantasy masterpiece, FLUX quality. Central archetype & symbolism: ${dynamicSymbolism}. ${
+      isHellMode
+        ? 'Neon crimson and blood red ornate gothic filigree border, glowing blood-red and deep violet cybernetic halo, crimson neon runes, dark industrial occult tarot card, pitch-black background.'
+        : 'Glowing amethyst violet and antique gold ornate gothic filigree border, luminous purple cybernetic halo, arcane neon runes, cyber-zen tarot card, pitch-black background.'
+    }`;
     const aethericCode = parsedData.aethericCode || "# The system analyzed the void, and the void compiled.\nprint('Silence.')";
     const seedOfTruth = parsedData.seedOfTruth || "The sum of our madness is the equation of our soul.";
 
@@ -165,11 +180,14 @@ export async function POST(req: Request) {
     }
 
     // 5. Save to Akashic Records as a Diary Entry
+    const diaryVibrationLabel = isHellMode
+      ? `[DIARY OF A MADMAN // HELL MODE: ${archetypeTitle}]`
+      : `[DIARY OF A MADMAN // ${archetypeTitle}]`;
     const { data: recordData, error: recordError } = await adminClient
       .from('akashic_records')
       .insert({
         user_id: user.id,
-        vibrationtext: isHellMode ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]",
+        vibrationtext: diaryVibrationLabel,
         description: assessment,
         aethericcode: aethericCode,
         seedoftruth: seedOfTruth,
@@ -192,6 +210,8 @@ export async function POST(req: Request) {
       assessment, 
       aethericCode,
       seedOfTruth,
+      archetypeTitle,
+      vibrationText: diaryVibrationLabel,
       imagePrompt, 
       imageUrl, 
       id: recordData?.id,
@@ -204,20 +224,15 @@ export async function POST(req: Request) {
   }
 }
 
-async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, isHellMode = false) {
+async function generateImageAndUpload(styledPrompt: string, supabaseAdminClient: any, isHellMode = false) {
   try {
-    const STYLE_SUFFIX = isHellMode
-      ? ', dark industrial cyberpunk tarot card design, blood crimson and deep violet neon glow, shattered obsidian mirror, occult cybernetic illustration, raw heavy metal aesthetic, clean sharp lines'
-      : ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, tarot card design';
-    const styledPrompt = prompt + STYLE_SUFFIX;
-
     const falEndpoint = isHellMode
       ? 'https://fal.run/fal-ai/flux/dev'
       : 'https://fal.run/fal-ai/flux/schnell';
     const falPayload = isHellMode
       ? {
           prompt: styledPrompt,
-          image_size: 'square_hd',
+          image_size: 'portrait_4_3',
           num_inference_steps: 28,
           guidance_scale: 3.5,
           num_images: 1,
@@ -225,7 +240,7 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, 
         }
       : {
           prompt: styledPrompt,
-          image_size: 'square_hd',
+          image_size: 'portrait_4_3',
           num_inference_steps: 4,
           num_images: 1,
           enable_safety_checker: false,
@@ -251,7 +266,7 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, 
         const arrayBuffer = await imgRes.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const crypto = require('crypto');
-        const promptHash = crypto.createHash('md5').update(prompt).digest('hex');
+        const promptHash = crypto.createHash('md5').update(styledPrompt).digest('hex');
         const fileName = `diary_${promptHash}.jpg`;
 
         const { error: uploadError } = await supabaseAdminClient.storage

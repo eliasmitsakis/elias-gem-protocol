@@ -150,7 +150,7 @@ export default function PrivateArtifactPage() {
             </div>
           )}
 
-          <div className={`group relative w-full aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
+          <div className={`group relative w-full ${isDiary ? 'aspect-[3/4]' : 'aspect-square'} rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
             isHellDiary
               ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
               : isDiary
@@ -167,7 +167,7 @@ export default function PrivateArtifactPage() {
                 imageUrl={imageUrl}
                 recordId={artifact.id}
                 width={800}
-                height={800}
+                height={isDiary ? 1066 : 800}
                 className="absolute inset-0 z-0"
                 noFallback={true}
               />
@@ -181,17 +181,13 @@ export default function PrivateArtifactPage() {
             )}
             <div className="scanline"></div>
 
-            {/* Seed of Truth Overlay */}
-            {artifact.seedoftruth && (
+            {/* Seed of Truth Overlay (non-Diary artifacts) */}
+            {artifact.seedoftruth && !isDiary && (
               <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                isHellDiary ? 'border-fuchsia-500/35' : isDiary ? 'border-purple-500/20' : isHell ? 'border-red-500/30' : isAuto ? 'border-orange-500/30' : 'border-gold/20'
+                isHell ? 'border-red-500/30' : isAuto ? 'border-orange-500/30' : 'border-gold/20'
               }`}>
                 <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                  isHellDiary
-                    ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-200 to-red-300 font-semibold'
-                    : isDiary
-                    ? 'text-purple-300'
-                    : isHell
+                  isHell
                     ? 'text-red-300'
                     : isAuto
                     ? 'text-orange-200'
@@ -202,6 +198,23 @@ export default function PrivateArtifactPage() {
               </div>
             )}
           </div>
+
+          {/* Seed of Truth Banner below Tarot Card (Diary artifacts) */}
+          {artifact.seedoftruth && isDiary && (
+            <div className={`mt-4 w-full rounded p-4 border relative z-10 ${
+              isHellDiary
+                ? 'bg-gradient-to-r from-purple-950/45 via-fuchsia-950/35 to-red-950/45 border-fuchsia-500/40'
+                : 'bg-purple-950/30 border-purple-500/30'
+            }`}>
+              <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
+                isHellDiary
+                  ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-red-200 font-semibold'
+                  : 'text-purple-200'
+              }`}>
+                {isHellDiary ? '🧠🩸 ' : '🧠 '}&ldquo;{artifact.seedoftruth}&rdquo;
+              </p>
+            </div>
+          )}
 
 
           {/* Aetheric Description */}

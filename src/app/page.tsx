@@ -656,7 +656,7 @@ export default function CyberZenPortal() {
             data.seedOfTruth,
             data.imagePrompt,
             data.assessment,
-            activeHell ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]",
+            data.vibrationText || (activeHell ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]"),
             data.id,
             data.imageUrl
           );
@@ -1155,10 +1155,12 @@ sys.stderr = io.StringIO()
         ref={scrollContainerRef}
         className={`fixed top-0 right-0 h-full w-80 bg-obsidian/95 border-l border-gold/20 shadow-[-10px_0_30px_rgba(0,0,0,0.8)] z-40 transform transition-transform duration-500 overflow-y-auto ${isAkashaOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="p-6 relative text-gold/80 font-mono text-sm">
+        <div className="pt-16 px-6 pb-6 md:p-6 relative text-gold/80 font-mono text-sm">
            <div className="absolute top-16 bottom-0 left-[1.5rem] w-px bg-gold/10 shadow-[0_0_4px_rgba(255,215,0,0.4)] z-0"></div>
 
-           <h2 className="text-xl font-bold mb-8 text-gold-glow sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20">The Aetheric Scroll</h2>
+           <h2 className="hidden md:block text-xl font-bold mb-8 text-gold-glow sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20">
+             <span className="hidden md:inline">The Aetheric Scroll</span>
+           </h2>
            
            <div className="flex flex-col gap-8 relative z-10">
               {akashaRecords.length === 0 ? (
@@ -1317,7 +1319,7 @@ sys.stderr = io.StringIO()
                       </div>
                       
                       {record.imagePrompt && (
-                        <div className={`w-full aspect-square rounded border overflow-hidden mt-2 ${
+                        <div className={`w-full ${isDiary ? 'aspect-[3/4]' : 'aspect-square'} rounded border overflow-hidden mt-2 ${
                           isHellDiary ? 'border-fuchsia-500/45 shadow-[0_0_12px_rgba(217,70,239,0.2)]' : isDiary ? 'border-purple-500/30' : isHell ? 'border-red-500/35' : isAuto ? 'border-orange-500/35' : 'border-gold/20'
                         }`}>
                           <AethericImage
@@ -1502,7 +1504,7 @@ sys.stderr = io.StringIO()
                   )}
 
                   {imagePrompt && (
-                    <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
+                    <div className={`group relative w-full max-w-xl ${isCurrentDiary ? 'aspect-[3/4]' : 'aspect-square'} rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
                       isHellDiary
                         ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
                         : isCurrentDiary
@@ -1513,7 +1515,7 @@ sys.stderr = io.StringIO()
                         ? 'border-orange-500/50 shadow-[0_0_22px_rgba(249,115,22,0.35)]'
                         : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'
                     }`}>
-                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={800} className="absolute inset-0 z-0" noFallback={true} />
+                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={isCurrentDiary ? 1066 : 800} className="absolute inset-0 z-0" noFallback={true} />
                       <div className="scanline"></div>
 
                       {/* ── Image Prompt Copy Icon ── */}
@@ -1554,17 +1556,13 @@ sys.stderr = io.StringIO()
                         </button>
                       </div>
 
-                      {/* Seed of Truth Overlay */}
-                      {seedOfTruth && (
+                      {/* Seed of Truth Overlay (non-Diary artifacts) */}
+                      {seedOfTruth && !isCurrentDiary && (
                         <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                          isHellDiary ? 'border-fuchsia-500/35' : isCurrentDiary ? 'border-purple-500/20' : isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
+                          isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
                         }`}>
                           <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                            isHellDiary
-                              ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-200 to-red-300 font-semibold'
-                              : isCurrentDiary
-                              ? 'text-purple-300'
-                              : isCurrentHell
+                            isCurrentHell
                               ? 'text-red-300'
                               : isCurrentAutonomous
                               ? 'text-orange-200'
@@ -1574,6 +1572,23 @@ sys.stderr = io.StringIO()
                           </p>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Seed of Truth Banner below Tarot Card (Diary artifacts — keeps bottom nameplate plaque uncovered) */}
+                  {seedOfTruth && isCurrentDiary && (
+                    <div className={`mt-4 w-full max-w-xl rounded p-4 border relative z-10 ${
+                      isHellDiary
+                        ? 'bg-gradient-to-r from-purple-950/45 via-fuchsia-950/35 to-red-950/45 border-fuchsia-500/40'
+                        : 'bg-purple-950/30 border-purple-500/30'
+                    }`}>
+                      <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
+                        isHellDiary
+                          ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-red-200 font-semibold'
+                          : 'text-purple-200'
+                      }`}>
+                        {isHellDiary ? '🧠🩸 ' : '🧠 '}"{seedOfTruth}"
+                      </p>
                     </div>
                   )}
 
