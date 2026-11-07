@@ -62,7 +62,9 @@ export async function GET(req: Request) {
           imagePrompt: row.imageprompt,
           imageUrl: row.image_url,
           executionOutput: row.executionoutput,
-          is_diary: row.is_diary || false
+          is_diary: row.is_diary || false,
+          is_hell_mode: row.is_hell_mode || false,
+          is_autonomous: row.is_autonomous || false
         };
       });
 

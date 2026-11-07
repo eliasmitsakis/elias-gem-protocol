@@ -95,6 +95,8 @@ export async function POST(req: Request) {
         seedoftruth: aiResult.seedOfTruth,
         imageprompt: aiResult.imagePrompt,
         image_url: null,
+        is_hell_mode: isHellMode,
+        is_autonomous: isBurnTheScript,
       })
       .select('id')
       .single();

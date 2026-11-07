@@ -796,8 +796,8 @@ sys.stderr = io.StringIO()
     isReplayRef.current = true;
     setIsReplay(true);
     setIsCurrentDiary(record.is_diary === true);
-    setIsCurrentHell(false);
-    setIsCurrentAutonomous(false);
+    setIsCurrentHell(record.is_hell_mode === true);
+    setIsCurrentAutonomous(record.is_autonomous === true);
 
     setVibrationText(record.vibrationText);
     setAethericCode(record.aethericCode);
@@ -1072,12 +1072,40 @@ sys.stderr = io.StringIO()
               ) : (
                 akashaRecords.map((record) => {
                   const timestampStr = record.created_at || record.timestamp;
+                  const isDiary = record.is_diary === true;
+                  const isHell = !isDiary && record.is_hell_mode === true;
+                  const isAuto = !isDiary && record.is_autonomous === true;
+
                   return (
-                    <div key={record.id} className={`relative pl-6 py-4 pr-4 border rounded-lg ${record.is_diary ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/40 border-gold/20'}`}>
-                      <div className={`absolute -left-1.5 top-6 w-3 h-3 rounded-full border ${record.is_diary ? 'bg-purple-950 border-purple-500' : 'bg-obsidian border-gold/60'}`}></div>
+                    <div
+                      key={record.id}
+                      onClick={() => handleReplay(record)}
+                      className={`relative pl-6 py-4 pr-4 border rounded-lg cursor-pointer transition-all duration-200 ${
+                        isDiary
+                          ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)] hover:border-purple-400/70'
+                          : isHell
+                          ? 'bg-red-950/25 border-red-500/45 shadow-[0_0_20px_rgba(239,68,68,0.18)] hover:border-red-400/80'
+                          : isAuto
+                          ? 'bg-orange-950/25 border-orange-500/45 shadow-[0_0_20px_rgba(249,115,22,0.18)] hover:border-orange-400/80'
+                          : 'bg-black/40 border-gold/20 hover:border-gold/50'
+                      }`}
+                    >
+                      <div className={`absolute -left-1.5 top-6 w-3 h-3 rounded-full border ${
+                        isDiary
+                          ? 'bg-purple-950 border-purple-500'
+                          : isHell
+                          ? 'bg-red-950 border-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
+                          : isAuto
+                          ? 'bg-orange-950 border-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.8)]'
+                          : 'bg-obsidian border-gold/60'
+                      }`}></div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className={`text-xs ${record.is_diary ? 'text-purple-300/80' : 'text-nebula/60'}`}>{new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}</p>
-                        <div className="relative flex items-center">
+                        <p className={`text-xs ${
+                          isDiary ? 'text-purple-300/80' : isHell ? 'text-red-300/80' : isAuto ? 'text-orange-300/80' : 'text-nebula/60'
+                        }`}>
+                          {new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}
+                        </p>
+                        <div className="relative flex items-center" onClick={(e) => e.stopPropagation()}>
                           {/* Inline tooltip */}
                           <div
                             className="absolute right-full mr-2 pointer-events-none whitespace-nowrap"
@@ -1097,14 +1125,24 @@ sys.stderr = io.StringIO()
                           <button
                             onClick={() => copyRecordLink(record.id)}
                             title="Copy private owner-only link"
-                            className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-200 group ${record.is_diary ? 'hover:bg-purple-500/20' : 'hover:bg-gold/10'}`}
+                            className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-200 group ${
+                              isDiary ? 'hover:bg-purple-500/20' : isHell ? 'hover:bg-red-500/20' : isAuto ? 'hover:bg-orange-500/20' : 'hover:bg-gold/10'
+                            }`}
                           >
                             {copiedId === record.id ? (
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
                               </svg>
                             ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-colors ${record.is_diary ? 'text-purple-300/50 group-hover:text-purple-400' : 'text-nebula/40 group-hover:text-gold/70'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-colors ${
+                                isDiary
+                                  ? 'text-purple-300/50 group-hover:text-purple-400'
+                                  : isHell
+                                  ? 'text-red-300/50 group-hover:text-red-400'
+                                  : isAuto
+                                  ? 'text-orange-300/50 group-hover:text-orange-400'
+                                  : 'text-nebula/40 group-hover:text-gold/70'
+                              }`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                               </svg>
@@ -1112,21 +1150,55 @@ sys.stderr = io.StringIO()
                           </button>
                         </div>
                       </div>
-                      {record.is_diary && <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">👁️ Diary of a Madman</p>}
-                      <p className={`font-bold mb-3 ${record.is_diary ? 'text-purple-200' : 'text-gold-glow'}`}>"{record.vibrationText}"</p>
+                      {isDiary && <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">👁️ Diary of a Madman</p>}
+                      {(isAuto || isHell) && (
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                          {isAuto && (
+                            <span className="text-[9px] font-bold text-orange-300 bg-orange-950/60 border border-orange-500/40 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                              🔥 Burn the Script
+                            </span>
+                          )}
+                          {isHell && (
+                            <span className="text-[9px] font-bold text-red-300 bg-red-950/60 border border-red-500/40 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                              🩸 Hell Mode // 11
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <p className={`font-bold mb-3 ${
+                        isDiary ? 'text-purple-200' : isHell ? 'text-red-200' : isAuto ? 'text-orange-200' : 'text-gold-glow'
+                      }`}>"{record.vibrationText}"</p>
                       
                       {record.description && (
-                        <div className={`border-l-2 p-3 mb-3 rounded-r text-sm font-serif italic leading-relaxed ${record.is_diary ? 'bg-purple-900/10 border-purple-500/50 text-purple-200/90' : 'bg-obsidian/40 border-gold/30 text-gold/80'}`}>
+                        <div className={`border-l-2 p-3 mb-3 rounded-r text-sm font-serif italic leading-relaxed ${
+                          isDiary
+                            ? 'bg-purple-900/10 border-purple-500/50 text-purple-200/90'
+                            : isHell
+                            ? 'bg-red-950/20 border-red-500/50 text-red-200/90'
+                            : isAuto
+                            ? 'bg-orange-950/20 border-orange-500/50 text-orange-100/90'
+                            : 'bg-obsidian/40 border-gold/30 text-gold/80'
+                        }`}>
                           {record.description}
                         </div>
                       )}
                       
-                      <div className={`p-3 rounded text-xs italic opacity-90 break-words mb-3 ${record.is_diary ? 'bg-purple-950/40 border border-purple-500/20 text-purple-100' : 'bg-black/50 border border-gold/10'}`}>
-                        {record.is_diary ? '🧠' : '👁️'} "{record.seedOfTruth}"
+                      <div className={`p-3 rounded text-xs italic opacity-90 break-words mb-3 ${
+                        isDiary
+                          ? 'bg-purple-950/40 border border-purple-500/20 text-purple-100'
+                          : isHell
+                          ? 'bg-red-950/40 border border-red-500/25 text-red-200'
+                          : isAuto
+                          ? 'bg-orange-950/40 border border-orange-500/25 text-orange-100'
+                          : 'bg-black/50 border border-gold/10'
+                      }`}>
+                        {isDiary ? '🧠' : isHell ? '🩸' : isAuto ? '🔥' : '👁️'} "{record.seedOfTruth}"
                       </div>
                       
                       {record.imagePrompt && (
-                        <div className="w-full aspect-square rounded border border-gold/20 overflow-hidden mt-2">
+                        <div className={`w-full aspect-square rounded border overflow-hidden mt-2 ${
+                          isDiary ? 'border-purple-500/30' : isHell ? 'border-red-500/35' : isAuto ? 'border-orange-500/35' : 'border-gold/20'
+                        }`}>
                           <AethericImage
                             prompt={record.imagePrompt}
                             imageUrl={record.imageUrl}
