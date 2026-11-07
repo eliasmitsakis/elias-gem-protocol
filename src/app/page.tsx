@@ -978,17 +978,17 @@ sys.stderr = io.StringIO()
       <div className="cyber-zen-bg"></div>
 
 
-      {/* Top-left controls: Audio + Auth */}
-      <div className="fixed top-6 left-6 z-50 flex items-center gap-3">
+      {/* Top-left controls: Audio + Auth + Actions */}
+      <div className="fixed top-4 left-4 md:top-6 md:left-6 z-50 flex items-center md:items-start gap-2 md:gap-3">
         {/* Ambient Audio Toggle */}
         <button 
           onClick={toggleAmbient}
-          className={`p-3 rounded-full border transition-all ${
+          className={`w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center rounded-full border transition-all backdrop-blur-md ${
             isAmbientPlaying
               ? hellMode
-                ? 'bg-red-950/60 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.45)] text-red-300'
+                ? 'bg-red-950/70 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.45)] text-red-300'
                 : 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow'
-              : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'
+              : 'bg-black/70 border-gold/40 text-gold/60 hover:bg-gold/10'
           }`}
           title={hellMode ? "Toggle Hell Mode Distorted Ambience" : "Toggle Ambient Soundscape"}
         >
@@ -998,12 +998,14 @@ sys.stderr = io.StringIO()
         {/* Auth Controls & Features */}
         {!authLoading && (
           user ? (
-            <div className="flex flex-col gap-2 items-start">
+            <div className="flex flex-row md:flex-col items-center md:items-start gap-2">
               <UserMenu user={user} credits={credits} onSignOut={signOut} />
+
+              {/* Desktop full-label buttons (md+) */}
               <button
                 onClick={generateDiary}
                 disabled={diaryLoading || isTransmuting}
-                className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
                 title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
               >
                 {diaryLoading ? 'Analyzing...' : '👁️ Diary of a Madman'}
@@ -1012,10 +1014,39 @@ sys.stderr = io.StringIO()
                 id="burn-the-script-btn"
                 onClick={handleBurnTheScript}
                 disabled={isBurnDisabled}
-                className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-orange-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-orange-400/85 hover:text-orange-300 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.45)] transition-all disabled:opacity-50"
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-orange-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-orange-400/85 hover:text-orange-300 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.45)] transition-all disabled:opacity-50"
                 title="Surrender the keyboard: let the Oracle dream an autonomous paradoxical prompt (Costs 1 Credit)"
               >
                 {isTransmuting && isCurrentAutonomous ? '🔥 Burning...' : '🔥 Burn the Script'}
+              </button>
+
+              {/* Mobile minimal icon buttons (< md) */}
+              <button
+                onClick={generateDiary}
+                disabled={diaryLoading || isTransmuting}
+                aria-label="Diary of a Madman"
+                className={`md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-black/75 backdrop-blur-md border transition-all disabled:opacity-40 ${
+                  diaryLoading
+                    ? 'border-purple-400 text-purple-300 animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.5)]'
+                    : 'border-purple-500/50 text-purple-300 active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
+                }`}
+                title="Diary of a Madman (1 Credit)"
+              >
+                <span className="text-sm leading-none">{diaryLoading ? '⏳' : '👁️'}</span>
+              </button>
+              <button
+                id="burn-the-script-mobile-btn"
+                onClick={handleBurnTheScript}
+                disabled={isBurnDisabled}
+                aria-label="Burn the Script"
+                className={`md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-black/75 backdrop-blur-md border transition-all disabled:opacity-40 ${
+                  isTransmuting && isCurrentAutonomous
+                    ? 'border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
+                    : 'border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                }`}
+                title="Burn the Script — Autonomous Oracle (1 Credit)"
+              >
+                <span className="text-sm leading-none">🔥</span>
               </button>
             </div>
           ) : (
@@ -1045,11 +1076,11 @@ sys.stderr = io.StringIO()
       )}
 
       {/* Top-right controls: Scroll Toggle */}
-      <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+      <div className="fixed top-4 right-4 md:top-6 md:right-6 z-50 flex items-center gap-3">
         {/* Floating Toggle Button for The Akashic Scroll */}
         <button 
           onClick={() => setIsAkashaOpen(!isAkashaOpen)}
-          className="p-3 bg-black/60 border border-gold/40 rounded-full text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all animate-golden-pulse"
+          className="w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center bg-black/70 backdrop-blur-md border border-gold/40 rounded-full text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all animate-golden-pulse"
           title="Toggle The Aetheric Scroll"
         >
           📜
@@ -1221,10 +1252,10 @@ sys.stderr = io.StringIO()
 
       {/* Main Content Pane */}
       <div 
-        className="min-h-screen text-gold font-mono p-4 md:p-8 flex flex-col items-center relative z-10 w-full mouse-glow-container"
+        className="min-h-screen text-gold font-mono pt-20 px-4 pb-8 md:p-8 flex flex-col items-center relative z-10 w-full mouse-glow-container"
         onMouseMove={handleMouseMove}
       >
-        <header className="mb-4 opacity-80 text-sm tracking-widest uppercase animate-golden-pulse text-center">
+        <header className="mb-4 opacity-80 text-xs sm:text-sm tracking-widest uppercase animate-golden-pulse text-center">
           --- Aetheric Code Scribe v2.0 ---
         </header>
 
