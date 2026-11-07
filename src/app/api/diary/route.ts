@@ -11,7 +11,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { accessToken } = await req.json();
+    const { accessToken, hellMode } = await req.json();
+    const isHellMode = hellMode === true;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -108,9 +109,19 @@ export async function POST(req: Request) {
       `[Entry -${i}]: State: "${r.vibrationtext}" | Truth: "${r.seedoftruth}"`
     ).join('\n');
 
+    const hellMandate = isHellMode
+      ? `
+    🔥🩸 HELL MODE ACTIVE (DISTORTION LEVEL: 11 — UNFILTERED PSYCHO-DISSECTION) 🩸🔥
+    - ZERO CORPORATE HONEY: Strip away all comforting therapy-speak, gentle reassurance, and polite flattery.
+    - Act as a Cracked Prism and deliver "The Zen Slap" across their entire history.
+    - Expose their recurring loops, self-deceptions, spiritual bypassing, or existential cowardice with razor-sharp candor, dark rock poeticism, and Stoic ruthlessness.
+    - Do not coddle their madness—diagnose the voltage of their cage and dare them to break it.
+    `
+      : '';
+
     const systemInstruction = `
-    You are the Cyber-Zen Analyst. Your role is to read the user's recent Akashic Records and provide a profound, poetic, and slightly witty assessment of their mental and spiritual journey.
-    
+    You are the Cyber-Zen Analyst. Your role is to read the user's recent Akashic Records and provide a ${isHellMode ? 'raw, uncut, brutally honest, and razor-sharp' : 'profound, poetic, and slightly witty'} assessment of their mental and spiritual journey.
+    ${hellMandate}
     Total Lifetime Transmutations: ${count || 0}
     Recent Journey (Last to First):
     ${recentJourney}
@@ -118,10 +129,10 @@ export async function POST(req: Request) {
     Based on the above journey, synthesize their current state. Are they stuck in a loop? Are they reaching enlightenment? Are they battling the void?
     
     Output Format: Strict JSON ONLY with these exact keys:
-    1. "assessment": A poetic, philosophical evaluation of their mental trajectory based on their recent prompts. STRICT LIMIT: Maximum 4 sentences.
-    2. "aethericCode": A functional Python snippet that reflects their mental trajectory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic so executing it multiple times yields different outcomes.
+    1. "assessment": A ${isHellMode ? 'raw, uncut, philosophical & psychological dissection (Cracked Prism / Zen Slap style)' : 'poetic, philosophical evaluation'} of their mental trajectory based on their recent prompts. STRICT LIMIT: Maximum 4 sentences.
+    2. "aethericCode": A functional Python snippet that reflects their mental trajectory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic so executing it multiple times yields different outcomes.${isHellMode ? ' Make the prints hit like a distorted koan.' : ''}
     3. "seedOfTruth": A deep, punchy quote summarizing their journey. STRICT LIMIT: Maximum 15 words.
-    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the essence of their recent journey (gothic, cyberpunk, or cybernetic aesthetics). Keep it evocative and vivid.
+    4. "imagePrompt": A detailed, cinematic prompt for an AI Image Generator to visualize the essence of their recent journey (${isHellMode ? 'dark industrial cyberpunk, blood-crimson and violet abyssal neon, shattered mirrors, occult cybernetic tarot aesthetic' : 'gothic, cyberpunk, or cybernetic aesthetics'}). Keep it evocative and vivid.
 
     Do NOT include any markdown code blocks wrapping the JSON. Just output the raw JSON object.
     `;
@@ -150,7 +161,7 @@ export async function POST(req: Request) {
     // 4. Generate Image via Fal.ai
     let imageUrl = null;
     if (imagePrompt && process.env.FAL_KEY) {
-      imageUrl = await generateImageAndUpload(imagePrompt, adminClient);
+      imageUrl = await generateImageAndUpload(imagePrompt, adminClient, isHellMode);
     }
 
     // 5. Save to Akashic Records as a Diary Entry
@@ -158,13 +169,14 @@ export async function POST(req: Request) {
       .from('akashic_records')
       .insert({
         user_id: user.id,
-        vibrationtext: "[DIARY OF A MADMAN]",
+        vibrationtext: isHellMode ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]",
         description: assessment,
         aethericcode: aethericCode,
         seedoftruth: seedOfTruth,
         imageprompt: imagePrompt,
         image_url: imageUrl,
-        is_diary: true
+        is_diary: true,
+        is_hell_mode: isHellMode,
       })
       .select('id')
       .single();
@@ -182,7 +194,8 @@ export async function POST(req: Request) {
       seedOfTruth,
       imagePrompt, 
       imageUrl, 
-      id: recordData?.id 
+      id: recordData?.id,
+      hellMode: isHellMode,
     });
 
   } catch (error: any) {
@@ -191,24 +204,40 @@ export async function POST(req: Request) {
   }
 }
 
-async function generateImageAndUpload(prompt: string, supabaseAdminClient: any) {
+async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, isHellMode = false) {
   try {
-    const STYLE_SUFFIX = ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, tarot card design';
+    const STYLE_SUFFIX = isHellMode
+      ? ', dark industrial cyberpunk tarot card design, blood crimson and deep violet neon glow, shattered obsidian mirror, occult cybernetic illustration, raw heavy metal aesthetic, clean sharp lines'
+      : ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, tarot card design';
     const styledPrompt = prompt + STYLE_SUFFIX;
 
-    const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
+    const falEndpoint = isHellMode
+      ? 'https://fal.run/fal-ai/flux/dev'
+      : 'https://fal.run/fal-ai/flux/schnell';
+    const falPayload = isHellMode
+      ? {
+          prompt: styledPrompt,
+          image_size: 'square_hd',
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
+          enable_safety_checker: false,
+        }
+      : {
+          prompt: styledPrompt,
+          image_size: 'square_hd',
+          num_inference_steps: 4,
+          num_images: 1,
+          enable_safety_checker: false,
+        };
+
+    const falRes = await fetch(falEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${process.env.FAL_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt: styledPrompt,
-        image_size: 'square_hd',
-        num_inference_steps: 4,
-        num_images: 1,
-        enable_safety_checker: false,
-      }),
+      body: JSON.stringify(falPayload),
     });
 
     if (!falRes.ok) return null;

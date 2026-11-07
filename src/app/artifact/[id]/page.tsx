@@ -61,6 +61,7 @@ export default function PrivateArtifactPage() {
   }
   const imageUrl: string | null = artifact.image_url || null;
   const isDiary = artifact.is_diary === true;
+  const isHellDiary = isDiary && artifact.is_hell_mode === true;
   const isHell = !isDiary && artifact.is_hell_mode === true;
   const isAuto = !isDiary && artifact.is_autonomous === true;
 
@@ -94,7 +95,7 @@ export default function PrivateArtifactPage() {
         {/* Vibration text label — above the card, outside the border */}
         {artifact.vibrationtext && (
           <p className={`w-full mb-3 text-[11px] font-mono tracking-widest uppercase leading-relaxed text-left px-1 ${
-            isDiary ? 'text-purple-400/50' : isHell ? 'text-red-400/60' : isAuto ? 'text-orange-400/60' : 'text-gold/40'
+            isHellDiary ? 'text-fuchsia-300/70' : isDiary ? 'text-purple-400/50' : isHell ? 'text-red-400/60' : isAuto ? 'text-orange-400/60' : 'text-gold/40'
           }`}>
             ✦ {artifact.vibrationtext}
           </p>
@@ -102,7 +103,9 @@ export default function PrivateArtifactPage() {
 
         {/* Artifact Card */}
         <div className={`w-full bg-[#050505] p-8 flex flex-col items-center relative overflow-hidden border shadow-2xl ${
-          isDiary
+          isHellDiary
+            ? 'border-fuchsia-500/35 shadow-[0_0_30px_rgba(217,70,239,0.2)]'
+            : isDiary
             ? 'border-purple-500/20'
             : isHell
             ? 'border-red-500/25'
@@ -112,19 +115,35 @@ export default function PrivateArtifactPage() {
         }`}>
           {/* Subtle background glow */}
           <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${
-            isDiary ? 'bg-purple-600/10' : isHell ? 'bg-red-600/15' : isAuto ? 'bg-orange-500/15' : 'bg-gold/5'
+            isHellDiary
+              ? 'bg-gradient-to-r from-purple-600/25 via-fuchsia-600/20 to-red-600/25'
+              : isDiary
+              ? 'bg-purple-600/10'
+              : isHell
+              ? 'bg-red-600/15'
+              : isAuto
+              ? 'bg-orange-500/15'
+              : 'bg-gold/5'
           }`}></div>
 
-          {/* Autonomous / Hell Mode Header Tag */}
-          {(isAuto || isHell) && !isDiary && (
+          {/* Autonomous / Diary / Hell Mode Header Tag */}
+          {(isAuto || isHell || isHellDiary) && (
             <div className="w-full mb-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] z-10">
-              {isAuto ? (
+              {isHellDiary ? (
+                <span className="px-2 py-0.5 rounded bg-purple-950/70 border border-purple-500/50 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+                  👁️ [DIARY OF A MADMAN]
+                </span>
+              ) : isAuto ? (
                 <span className="px-2 py-0.5 rounded bg-orange-950/60 border border-orange-500/40 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
                   🔥 [AUTONOMOUS ARTIFACT]
                 </span>
               ) : <span />}
-              {isHell && (
-                <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+              {(isHell || isHellDiary) && (
+                <span className={`px-2 py-0.5 rounded border shadow-[0_0_10px_rgba(239,68,68,0.3)] ${
+                  isHellDiary
+                    ? 'bg-gradient-to-r from-fuchsia-950/70 to-red-950/70 border-fuchsia-500/60 text-red-200'
+                    : 'bg-red-950/60 border-red-500/50 text-red-300'
+                }`}>
                   🩸 [HELL MODE // DISTORTION: 11]
                 </span>
               )}
@@ -132,7 +151,9 @@ export default function PrivateArtifactPage() {
           )}
 
           <div className={`group relative w-full aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
-            isDiary
+            isHellDiary
+              ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
+              : isDiary
               ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
               : isHell
               ? 'border-red-500/50 shadow-[0_0_25px_rgba(239,68,68,0.35)]'
@@ -154,7 +175,7 @@ export default function PrivateArtifactPage() {
               /* No stored image — show static placeholder, never regenerate */
               <div className="absolute inset-0 z-0 flex items-center justify-center bg-black/60">
                 <span className={`text-5xl select-none ${
-                  isDiary ? 'text-purple-500/20' : isHell ? 'text-red-500/20' : isAuto ? 'text-orange-500/20' : 'text-gold/20'
+                  isHellDiary ? 'text-fuchsia-500/25' : isDiary ? 'text-purple-500/20' : isHell ? 'text-red-500/20' : isAuto ? 'text-orange-500/20' : 'text-gold/20'
                 }`}>✦</span>
               </div>
             )}
@@ -163,10 +184,18 @@ export default function PrivateArtifactPage() {
             {/* Seed of Truth Overlay */}
             {artifact.seedoftruth && (
               <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                isDiary ? 'border-purple-500/20' : isHell ? 'border-red-500/30' : isAuto ? 'border-orange-500/30' : 'border-gold/20'
+                isHellDiary ? 'border-fuchsia-500/35' : isDiary ? 'border-purple-500/20' : isHell ? 'border-red-500/30' : isAuto ? 'border-orange-500/30' : 'border-gold/20'
               }`}>
                 <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                  isDiary ? 'text-purple-300' : isHell ? 'text-red-300' : isAuto ? 'text-orange-200' : 'text-gold-glow'
+                  isHellDiary
+                    ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-200 to-red-300 font-semibold'
+                    : isDiary
+                    ? 'text-purple-300'
+                    : isHell
+                    ? 'text-red-300'
+                    : isAuto
+                    ? 'text-orange-200'
+                    : 'text-gold-glow'
                 }`}>
                   &ldquo;{artifact.seedoftruth}&rdquo;
                 </p>
@@ -179,24 +208,24 @@ export default function PrivateArtifactPage() {
           {artifact.description && (
             <div className="mt-6 w-full text-center px-4 relative z-10">
               <p className={`font-serif italic leading-relaxed text-lg ${
-                isDiary ? 'text-purple-200/80' : isHell ? 'text-red-200/85' : isAuto ? 'text-orange-100/85' : 'text-gold/70'
+                isHellDiary ? 'text-fuchsia-100/90' : isDiary ? 'text-purple-200/80' : isHell ? 'text-red-200/85' : isAuto ? 'text-orange-100/85' : 'text-gold/70'
               }`}>{artifact.description}</p>
             </div>
           )}
 
           {/* Branding Footer */}
           <div className={`w-full mt-8 pt-4 border-t flex justify-between items-center relative z-10 ${
-            isDiary ? 'border-purple-500/10' : isHell ? 'border-red-500/15' : isAuto ? 'border-orange-500/15' : 'border-gold/10'
+            isHellDiary ? 'border-fuchsia-500/20' : isDiary ? 'border-purple-500/10' : isHell ? 'border-red-500/15' : isAuto ? 'border-orange-500/15' : 'border-gold/10'
           }`}>
             <span className={`text-[10px] font-mono ${
-              isDiary ? 'text-purple-400/30' : isHell ? 'text-red-400/45' : isAuto ? 'text-orange-400/45' : 'text-gold/30'
+              isHellDiary ? 'text-fuchsia-400/50' : isDiary ? 'text-purple-400/30' : isHell ? 'text-red-400/45' : isAuto ? 'text-orange-400/45' : 'text-gold/30'
             }`}>
               {new Date(artifact.created_at).toLocaleDateString()}
             </span>
             <span className={`text-[10px] tracking-widest uppercase font-mono ${
-              isDiary ? 'text-purple-400/30' : isHell ? 'text-red-400/45' : isAuto ? 'text-orange-400/45' : 'text-gold/30'
+              isHellDiary ? 'text-fuchsia-400/50' : isDiary ? 'text-purple-400/30' : isHell ? 'text-red-400/45' : isAuto ? 'text-orange-400/45' : 'text-gold/30'
             }`}>
-              Elias &amp; Gem Protocol {isDiary ? '| DIARY' : isHell ? '| HELL MODE' : isAuto ? '| AUTONOMOUS' : ''}
+              Elias &amp; Gem Protocol {isHellDiary ? '| DIARY // HELL MODE' : isDiary ? '| DIARY' : isHell ? '| HELL MODE' : isAuto ? '| AUTONOMOUS' : ''}
             </span>
           </div>
         </div>

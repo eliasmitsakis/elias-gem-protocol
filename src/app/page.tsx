@@ -350,6 +350,8 @@ export default function CyberZenPortal() {
   const [hellMode, setHellMode] = useState(false);
   const [isCurrentHell, setIsCurrentHell] = useState(false);
   const [isCurrentAutonomous, setIsCurrentAutonomous] = useState(false);
+  const [mobileExpandedAction, setMobileExpandedAction] = useState<'diary' | 'burn' | null>(null);
+  const isHellDiary = isCurrentDiary && isCurrentHell;
 
   // Pyodide State
   const [pyodideReady, setPyodideReady] = useState(false);
@@ -600,6 +602,7 @@ export default function CyberZenPortal() {
       }
 
       // Mark as fresh generation
+      const activeHell = hellMode;
       isReplayRef.current = false;
       setIsReplay(false);
       setDiaryLoading(true);
@@ -610,15 +613,20 @@ export default function CyberZenPortal() {
       setDescription('');
       setArtifactId(null);
       setIsCurrentDiary(true);
-      setIsCurrentHell(false);
+      setIsCurrentHell(activeHell);
       setIsCurrentAutonomous(false);
+      setMobileExpandedAction(null);
 
-      startTypingEffect("# Aligning frequencies...\n# Connecting to the Akasha...\n# Analyzing the sum of your madness...");
+      startTypingEffect(
+        activeHell
+          ? "# [!] HELL MODE DIARY ENGAGED — DISTORTION: 11\n# Connecting to the Akasha...\n# Dissecting the raw sum of your madness without mercy..."
+          : "# Aligning frequencies...\n# Connecting to the Akasha...\n# Analyzing the sum of your madness..."
+      );
 
       const res = await fetch('/api/diary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken })
+        body: JSON.stringify({ accessToken, hellMode: activeHell })
       });
 
       const data = await res.json();
@@ -627,6 +635,7 @@ export default function CyberZenPortal() {
         setAethericCode(errorMsg);
         startTypingEffect(errorMsg);
         setIsCurrentDiary(false);
+        setIsCurrentHell(false);
       } else {
         setAethericCode(data.aethericCode);
         setSeedOfTruth(data.seedOfTruth);
@@ -642,8 +651,16 @@ export default function CyberZenPortal() {
         }
 
         startTypingEffect(data.aethericCode, () => {
-          executePythonCode(data.aethericCode, data.seedOfTruth, data.imagePrompt, data.assessment, "[DIARY OF A MADMAN]", data.id, data.imageUrl);
-          playChimeSound();
+          executePythonCode(
+            data.aethericCode,
+            data.seedOfTruth,
+            data.imagePrompt,
+            data.assessment,
+            activeHell ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]",
+            data.id,
+            data.imageUrl
+          );
+          playChimeSound(activeHell);
         });
 
         fetchAkashicRecords(true);
@@ -1005,10 +1022,14 @@ sys.stderr = io.StringIO()
               <button
                 onClick={generateDiary}
                 disabled={diaryLoading || isTransmuting}
-                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-purple-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all disabled:opacity-50"
+                className={`hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded text-[10px] uppercase font-bold tracking-widest transition-all disabled:opacity-50 border ${
+                  hellMode
+                    ? 'bg-gradient-to-r from-purple-950/70 via-fuchsia-950/60 to-red-950/70 border-fuchsia-500/60 text-fuchsia-200 hover:border-red-400 hover:text-red-200 hover:shadow-[0_0_18px_rgba(217,70,239,0.5)]'
+                    : 'bg-black/60 border-purple-500/40 text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                }`}
                 title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
               >
-                {diaryLoading ? 'Analyzing...' : '👁️ Diary of a Madman'}
+                {diaryLoading ? 'Analyzing...' : hellMode ? '👁️🩸 Diary of a Madman' : '👁️ Diary of a Madman'}
               </button>
               <button
                 id="burn-the-script-btn"
@@ -1020,33 +1041,75 @@ sys.stderr = io.StringIO()
                 {isTransmuting && isCurrentAutonomous ? '🔥 Burning...' : '🔥 Burn the Script'}
               </button>
 
-              {/* Mobile minimal icon buttons (< md) */}
+              {/* Mobile two-step expandable buttons (< md): Tap 1 reveals full label box, Tap 2 executes */}
+              {mobileExpandedAction && (
+                <div
+                  className="md:hidden fixed inset-0 z-40"
+                  onClick={() => setMobileExpandedAction(null)}
+                />
+              )}
               <button
-                onClick={generateDiary}
+                onClick={() => {
+                  if (mobileExpandedAction === 'diary') {
+                    setMobileExpandedAction(null);
+                    void generateDiary();
+                  } else {
+                    setMobileExpandedAction('diary');
+                    playTypingSound();
+                  }
+                }}
                 disabled={diaryLoading || isTransmuting}
                 aria-label="Diary of a Madman"
-                className={`md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-black/75 backdrop-blur-md border transition-all disabled:opacity-40 ${
-                  diaryLoading
-                    ? 'border-purple-400 text-purple-300 animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.5)]'
-                    : 'border-purple-500/50 text-purple-300 active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
+                className={`md:hidden relative z-50 h-9 flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
+                  mobileExpandedAction === 'diary'
+                    ? hellMode
+                      ? 'px-3 rounded bg-gradient-to-r from-purple-950/90 to-red-950/90 border-fuchsia-500 text-fuchsia-200 shadow-[0_0_15px_rgba(217,70,239,0.5)]'
+                      : 'px-3 rounded border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+                    : diaryLoading
+                    ? 'w-9 rounded-full border-purple-400 text-purple-300 animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.5)]'
+                    : 'w-9 rounded-full border-purple-500/50 text-purple-300 active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
                 }`}
                 title="Diary of a Madman (1 Credit)"
               >
-                <span className="text-sm leading-none">{diaryLoading ? '⏳' : '👁️'}</span>
+                {mobileExpandedAction === 'diary' ? (
+                  <span className="text-[10px] uppercase font-bold tracking-widest whitespace-nowrap flex items-center gap-1.5">
+                    <span>{hellMode ? '👁️🩸' : '👁️'}</span>
+                    <span>Diary of a Madman</span>
+                  </span>
+                ) : (
+                  <span className="text-sm leading-none">{diaryLoading ? '⏳' : '👁️'}</span>
+                )}
               </button>
               <button
                 id="burn-the-script-mobile-btn"
-                onClick={handleBurnTheScript}
+                onClick={() => {
+                  if (mobileExpandedAction === 'burn') {
+                    setMobileExpandedAction(null);
+                    void handleBurnTheScript();
+                  } else {
+                    setMobileExpandedAction('burn');
+                    playTypingSound();
+                  }
+                }}
                 disabled={isBurnDisabled}
                 aria-label="Burn the Script"
-                className={`md:hidden w-9 h-9 flex items-center justify-center rounded-full bg-black/75 backdrop-blur-md border transition-all disabled:opacity-40 ${
-                  isTransmuting && isCurrentAutonomous
-                    ? 'border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
-                    : 'border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                className={`md:hidden relative z-50 h-9 flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
+                  mobileExpandedAction === 'burn'
+                    ? 'px-3 rounded border-orange-400 text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.5)]'
+                    : isTransmuting && isCurrentAutonomous
+                    ? 'w-9 rounded-full border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
+                    : 'w-9 rounded-full border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
                 }`}
                 title="Burn the Script — Autonomous Oracle (1 Credit)"
               >
-                <span className="text-sm leading-none">🔥</span>
+                {mobileExpandedAction === 'burn' ? (
+                  <span className="text-[10px] uppercase font-bold tracking-widest whitespace-nowrap flex items-center gap-1.5">
+                    <span>🔥</span>
+                    <span>Burn the Script</span>
+                  </span>
+                ) : (
+                  <span className="text-sm leading-none">🔥</span>
+                )}
               </button>
             </div>
           ) : (
@@ -1104,6 +1167,7 @@ sys.stderr = io.StringIO()
                 akashaRecords.map((record) => {
                   const timestampStr = record.created_at || record.timestamp;
                   const isDiary = record.is_diary === true;
+                  const isHellDiary = isDiary && record.is_hell_mode === true;
                   const isHell = !isDiary && record.is_hell_mode === true;
                   const isAuto = !isDiary && record.is_autonomous === true;
 
@@ -1112,7 +1176,9 @@ sys.stderr = io.StringIO()
                       key={record.id}
                       onClick={() => handleReplay(record)}
                       className={`relative pl-6 py-4 pr-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                        isDiary
+                        isHellDiary
+                          ? 'bg-gradient-to-br from-purple-950/40 via-fuchsia-950/30 to-red-950/40 border-fuchsia-500/55 shadow-[0_0_22px_rgba(217,70,239,0.25)] hover:border-red-400/85'
+                          : isDiary
                           ? 'bg-purple-900/20 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.15)] hover:border-purple-400/70'
                           : isHell
                           ? 'bg-red-950/25 border-red-500/45 shadow-[0_0_20px_rgba(239,68,68,0.18)] hover:border-red-400/80'
@@ -1122,7 +1188,9 @@ sys.stderr = io.StringIO()
                       }`}
                     >
                       <div className={`absolute -left-1.5 top-6 w-3 h-3 rounded-full border ${
-                        isDiary
+                        isHellDiary
+                          ? 'bg-gradient-to-br from-purple-600 to-red-600 border-fuchsia-400 shadow-[0_0_8px_rgba(239,68,68,0.85)]'
+                          : isDiary
                           ? 'bg-purple-950 border-purple-500'
                           : isHell
                           ? 'bg-red-950 border-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]'
@@ -1132,7 +1200,7 @@ sys.stderr = io.StringIO()
                       }`}></div>
                       <div className="flex items-center justify-between mb-2">
                         <p className={`text-xs ${
-                          isDiary ? 'text-purple-300/80' : isHell ? 'text-red-300/80' : isAuto ? 'text-orange-300/80' : 'text-nebula/60'
+                          isHellDiary ? 'text-fuchsia-300/90' : isDiary ? 'text-purple-300/80' : isHell ? 'text-red-300/80' : isAuto ? 'text-orange-300/80' : 'text-nebula/60'
                         }`}>
                           {new Date(timestampStr).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} • {new Date(timestampStr).toLocaleDateString()}
                         </p>
@@ -1157,7 +1225,7 @@ sys.stderr = io.StringIO()
                             onClick={() => copyRecordLink(record.id)}
                             title="Copy private owner-only link"
                             className={`flex items-center justify-center w-6 h-6 rounded transition-all duration-200 group ${
-                              isDiary ? 'hover:bg-purple-500/20' : isHell ? 'hover:bg-red-500/20' : isAuto ? 'hover:bg-orange-500/20' : 'hover:bg-gold/10'
+                              isHellDiary ? 'hover:bg-fuchsia-500/20' : isDiary ? 'hover:bg-purple-500/20' : isHell ? 'hover:bg-red-500/20' : isAuto ? 'hover:bg-orange-500/20' : 'hover:bg-gold/10'
                             }`}
                           >
                             {copiedId === record.id ? (
@@ -1166,7 +1234,9 @@ sys.stderr = io.StringIO()
                               </svg>
                             ) : (
                               <svg xmlns="http://www.w3.org/2000/svg" className={`w-3.5 h-3.5 transition-colors ${
-                                isDiary
+                                isHellDiary
+                                  ? 'text-fuchsia-300/60 group-hover:text-red-400'
+                                  : isDiary
                                   ? 'text-purple-300/50 group-hover:text-purple-400'
                                   : isHell
                                   ? 'text-red-300/50 group-hover:text-red-400'
@@ -1181,7 +1251,15 @@ sys.stderr = io.StringIO()
                           </button>
                         </div>
                       </div>
-                      {isDiary && <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">👁️ Diary of a Madman</p>}
+                      {isHellDiary ? (
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                          <span className="text-[9px] font-bold text-fuchsia-200 bg-gradient-to-r from-purple-950/80 to-red-950/80 border border-fuchsia-500/50 px-1.5 py-0.5 rounded uppercase tracking-widest">
+                            👁️🩸 Diary of a Madman // Hell 11
+                          </span>
+                        </div>
+                      ) : (
+                        isDiary && <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">👁️ Diary of a Madman</p>
+                      )}
                       {(isAuto || isHell) && (
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                           {isAuto && (
@@ -1197,12 +1275,22 @@ sys.stderr = io.StringIO()
                         </div>
                       )}
                       <p className={`font-bold mb-3 ${
-                        isDiary ? 'text-purple-200' : isHell ? 'text-red-200' : isAuto ? 'text-orange-200' : 'text-gold-glow'
+                        isHellDiary
+                          ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-red-200'
+                          : isDiary
+                          ? 'text-purple-200'
+                          : isHell
+                          ? 'text-red-200'
+                          : isAuto
+                          ? 'text-orange-200'
+                          : 'text-gold-glow'
                       }`}>"{record.vibrationText}"</p>
                       
                       {record.description && (
                         <div className={`border-l-2 p-3 mb-3 rounded-r text-sm font-serif italic leading-relaxed ${
-                          isDiary
+                          isHellDiary
+                            ? 'bg-gradient-to-r from-purple-950/35 to-red-950/35 border-fuchsia-500/60 text-fuchsia-100/90'
+                            : isDiary
                             ? 'bg-purple-900/10 border-purple-500/50 text-purple-200/90'
                             : isHell
                             ? 'bg-red-950/20 border-red-500/50 text-red-200/90'
@@ -1215,7 +1303,9 @@ sys.stderr = io.StringIO()
                       )}
                       
                       <div className={`p-3 rounded text-xs italic opacity-90 break-words mb-3 ${
-                        isDiary
+                        isHellDiary
+                          ? 'bg-gradient-to-r from-purple-950/50 to-red-950/50 border border-fuchsia-500/35 text-rose-200'
+                          : isDiary
                           ? 'bg-purple-950/40 border border-purple-500/20 text-purple-100'
                           : isHell
                           ? 'bg-red-950/40 border border-red-500/25 text-red-200'
@@ -1223,12 +1313,12 @@ sys.stderr = io.StringIO()
                           ? 'bg-orange-950/40 border border-orange-500/25 text-orange-100'
                           : 'bg-black/50 border border-gold/10'
                       }`}>
-                        {isDiary ? '🧠' : isHell ? '🩸' : isAuto ? '🔥' : '👁️'} "{record.seedOfTruth}"
+                        {isHellDiary ? '🧠🩸' : isDiary ? '🧠' : isHell ? '🩸' : isAuto ? '🔥' : '👁️'} "{record.seedOfTruth}"
                       </div>
                       
                       {record.imagePrompt && (
                         <div className={`w-full aspect-square rounded border overflow-hidden mt-2 ${
-                          isDiary ? 'border-purple-500/30' : isHell ? 'border-red-500/35' : isAuto ? 'border-orange-500/35' : 'border-gold/20'
+                          isHellDiary ? 'border-fuchsia-500/45 shadow-[0_0_12px_rgba(217,70,239,0.2)]' : isDiary ? 'border-purple-500/30' : isHell ? 'border-red-500/35' : isAuto ? 'border-orange-500/35' : 'border-gold/20'
                         }`}>
                           <AethericImage
                             prompt={record.imagePrompt}
@@ -1376,19 +1466,35 @@ sys.stderr = io.StringIO()
                 >
                   {/* Subtle background glow */}
                   <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 blur-[50px] pointer-events-none ${
-                    isCurrentDiary ? 'bg-purple-600/10' : isCurrentHell ? 'bg-red-600/15' : isCurrentAutonomous ? 'bg-orange-500/15' : 'bg-gold/5'
+                    isHellDiary
+                      ? 'bg-gradient-to-r from-purple-600/25 via-fuchsia-600/20 to-red-600/25'
+                      : isCurrentDiary
+                      ? 'bg-purple-600/10'
+                      : isCurrentHell
+                      ? 'bg-red-600/15'
+                      : isCurrentAutonomous
+                      ? 'bg-orange-500/15'
+                      : 'bg-gold/5'
                   }`}></div>
 
-                  {/* Autonomous / Hell Mode Header Tag */}
-                  {(isCurrentAutonomous || isCurrentHell) && !isCurrentDiary && (
+                  {/* Autonomous / Diary / Hell Mode Header Tag */}
+                  {(isCurrentAutonomous || isCurrentHell || isHellDiary) && (
                     <div className="w-full max-w-xl mb-3 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] z-10">
-                      {isCurrentAutonomous ? (
+                      {isHellDiary ? (
+                        <span className="px-2 py-0.5 rounded bg-purple-950/70 border border-purple-500/50 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.3)]">
+                          👁️ [DIARY OF A MADMAN]
+                        </span>
+                      ) : isCurrentAutonomous ? (
                         <span className="px-2 py-0.5 rounded bg-orange-950/60 border border-orange-500/40 text-orange-300 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
                           🔥 [AUTONOMOUS ARTIFACT]
                         </span>
                       ) : <span />}
                       {isCurrentHell && (
-                        <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                        <span className={`px-2 py-0.5 rounded border shadow-[0_0_10px_rgba(239,68,68,0.3)] ${
+                          isHellDiary
+                            ? 'bg-gradient-to-r from-fuchsia-950/70 to-red-950/70 border-fuchsia-500/60 text-red-200'
+                            : 'bg-red-950/60 border-red-500/50 text-red-300'
+                        }`}>
                           🩸 [HELL MODE // DISTORTION: 11]
                         </span>
                       )}
@@ -1397,7 +1503,9 @@ sys.stderr = io.StringIO()
 
                   {imagePrompt && (
                     <div className={`group relative w-full max-w-xl aspect-square rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
-                      isCurrentDiary
+                      isHellDiary
+                        ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
+                        : isCurrentDiary
                         ? 'border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.3)]'
                         : isCurrentHell
                         ? 'border-red-500/50 shadow-[0_0_25px_rgba(239,68,68,0.35)]'
@@ -1419,7 +1527,9 @@ sys.stderr = io.StringIO()
                           className={`group/copy flex items-center gap-2 p-2 rounded-md bg-black/60 backdrop-blur-sm border transition-all duration-300 ${
                             isPromptCopied 
                               ? 'border-green-500/60 text-green-400 bg-green-500/10'
-                              : isCurrentDiary 
+                              : isHellDiary
+                                ? 'border-fuchsia-500/45 hover:border-red-400/80 text-fuchsia-200'
+                                : isCurrentDiary 
                                 ? 'border-purple-500/30 hover:border-purple-400/60 text-purple-300'
                                 : isCurrentHell
                                 ? 'border-red-500/40 hover:border-red-400/70 text-red-300'
@@ -1447,10 +1557,18 @@ sys.stderr = io.StringIO()
                       {/* Seed of Truth Overlay */}
                       {seedOfTruth && (
                         <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                          isCurrentDiary ? 'border-purple-500/20' : isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
+                          isHellDiary ? 'border-fuchsia-500/35' : isCurrentDiary ? 'border-purple-500/20' : isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
                         }`}>
                           <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                            isCurrentDiary ? 'text-purple-300' : isCurrentHell ? 'text-red-300' : isCurrentAutonomous ? 'text-orange-200' : 'text-gold-glow'
+                            isHellDiary
+                              ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 via-fuchsia-200 to-red-300 font-semibold'
+                              : isCurrentDiary
+                              ? 'text-purple-300'
+                              : isCurrentHell
+                              ? 'text-red-300'
+                              : isCurrentAutonomous
+                              ? 'text-orange-200'
+                              : 'text-gold-glow'
                           }`}>
                             "{seedOfTruth}"
                           </p>
@@ -1463,19 +1581,19 @@ sys.stderr = io.StringIO()
                   {description && (
                     <div className="mt-6 w-full max-w-xl text-center px-4 relative z-10">
                       <p className={`font-serif italic leading-relaxed text-lg ${
-                        isCurrentDiary ? 'text-purple-200/80' : isCurrentHell ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/70'
+                        isHellDiary ? 'text-fuchsia-100/90' : isCurrentDiary ? 'text-purple-200/80' : isCurrentHell ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/70'
                       }`}>{description}</p>
                     </div>
                   )}
 
                   {/* Branding Footer */}
                   <div className={`w-full mt-8 pt-4 border-t text-right relative z-10 ${
-                    isCurrentDiary ? 'border-purple-500/10' : isCurrentHell ? 'border-red-500/15' : isCurrentAutonomous ? 'border-orange-500/15' : 'border-gold/10'
+                    isHellDiary ? 'border-fuchsia-500/20' : isCurrentDiary ? 'border-purple-500/10' : isCurrentHell ? 'border-red-500/15' : isCurrentAutonomous ? 'border-orange-500/15' : 'border-gold/10'
                   }`}>
                     <span className={`text-[10px] tracking-widest uppercase font-mono ${
-                      isCurrentDiary ? 'text-purple-400/40' : isCurrentHell ? 'text-red-400/50' : isCurrentAutonomous ? 'text-orange-400/50' : 'text-gold/30'
+                      isHellDiary ? 'text-fuchsia-400/60' : isCurrentDiary ? 'text-purple-400/40' : isCurrentHell ? 'text-red-400/50' : isCurrentAutonomous ? 'text-orange-400/50' : 'text-gold/30'
                     }`}>
-                      Elias & Gem Protocol | {isCurrentDiary ? 'Diary of a Madman' : isCurrentHell ? 'Hell Mode Artifact' : isCurrentAutonomous ? 'Autonomous Artifact' : 'Transmuted Artifact'}
+                      Elias & Gem Protocol | {isHellDiary ? 'Diary of a Madman // Hell Mode' : isCurrentDiary ? 'Diary of a Madman' : isCurrentHell ? 'Hell Mode Artifact' : isCurrentAutonomous ? 'Autonomous Artifact' : 'Transmuted Artifact'}
                     </span>
                   </div>
                 </div>
@@ -1485,7 +1603,9 @@ sys.stderr = io.StringIO()
                 <button
                   onClick={exportArtifact}
                   className={`px-6 py-3 bg-obsidian border rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${
-                    isCurrentDiary
+                    isHellDiary
+                      ? 'border-fuchsia-500 text-fuchsia-300 hover:bg-gradient-to-r hover:from-purple-950/40 hover:to-red-950/40 hover:shadow-[0_0_18px_rgba(217,70,239,0.5)]'
+                      : isCurrentDiary
                       ? 'border-purple-500 text-purple-400 hover:bg-purple-900/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
                       : isCurrentHell
                       ? 'border-red-500 text-red-300 hover:bg-red-950/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
@@ -1505,7 +1625,9 @@ sys.stderr = io.StringIO()
                       setTimeout(() => setShareCopied(false), 2000);
                     }}
                     className={`px-6 py-3 rounded uppercase tracking-widest text-sm transition-all duration-300 flex items-center gap-2 ${
-                      isCurrentDiary
+                      isHellDiary
+                        ? 'bg-gradient-to-r from-purple-950/40 to-red-950/40 border border-fuchsia-400 text-fuchsia-200 hover:from-purple-900/50 hover:to-red-900/50 hover:shadow-[0_0_18px_rgba(239,68,68,0.45)]'
+                        : isCurrentDiary
                         ? 'bg-purple-900/20 border border-purple-400 text-purple-300 hover:bg-purple-900/40 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
                         : isCurrentHell
                         ? 'bg-red-950/30 border border-red-500 text-red-300 hover:bg-red-900/40 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
@@ -1533,7 +1655,9 @@ sys.stderr = io.StringIO()
                 }}
                 title="Copy code"
                 className={`absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border transition-all duration-200 text-[10px] font-mono uppercase tracking-wider ${
-                  isCurrentDiary
+                  isHellDiary
+                    ? 'border-fuchsia-500/35 text-fuchsia-300/60 hover:text-fuchsia-200 hover:border-red-400/70'
+                    : isCurrentDiary
                     ? 'border-purple-500/20 text-purple-300/40 hover:text-purple-300 hover:border-purple-500/60'
                     : isCurrentHell || hellMode
                     ? 'border-red-500/30 text-red-300/60 hover:text-red-300 hover:border-red-500/70'
@@ -1548,14 +1672,16 @@ sys.stderr = io.StringIO()
               </button>
 
               <div className={`w-full h-64 lg:h-auto lg:max-h-[600px] overflow-y-auto border-l-2 pl-4 pr-16 py-4 bg-obsidian/60 rounded-tr-lg shadow-inner ${
-                isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : isCurrentAutonomous ? 'border-orange-500/40' : 'border-gold/30'
+                isHellDiary ? 'border-fuchsia-500/50' : isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : isCurrentAutonomous ? 'border-orange-500/40' : 'border-gold/30'
               }`}>
                 <pre className={`text-sm md:text-base leading-relaxed whitespace-pre-wrap word-break ${
-                  isCurrentDiary ? 'text-purple-200/80' : isCurrentHell || hellMode ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/80'
+                  isHellDiary ? 'text-fuchsia-200/90' : isCurrentDiary ? 'text-purple-200/80' : isCurrentHell || hellMode ? 'text-red-200/85' : isCurrentAutonomous ? 'text-orange-100/85' : 'text-gold/80'
                 }`}>
                   {typedCode}
                   {!showExecution && <span className={`animate-pulse ${
-                    isCurrentDiary
+                    isHellDiary
+                      ? 'text-fuchsia-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.9)]'
+                      : isCurrentDiary
                       ? 'text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]'
                       : isCurrentHell || hellMode
                       ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.9)]'
@@ -1568,7 +1694,7 @@ sys.stderr = io.StringIO()
             {/* Console Output Section */}
             {showExecution && (
               <div className={`w-full bg-black border-l-2 border-r-2 border-b-2 p-4 rounded-b-lg shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] font-mono text-sm relative overflow-hidden transition-all duration-500 ${
-                isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : 'border-gold/30'
+                isHellDiary ? 'border-fuchsia-500/45' : isCurrentDiary ? 'border-purple-500/30' : isCurrentHell || hellMode ? 'border-red-500/40' : 'border-gold/30'
               }`}>
                 <div className="absolute top-0 left-0 w-full h-full pointer-events-none bg-[linear-gradient(to_bottom,transparent_50%,rgba(0,0,0,0.25)_51%)] bg-[length:100%_4px] opacity-30 z-0"></div>
                 <div className="relative z-10 w-full overflow-hidden">
