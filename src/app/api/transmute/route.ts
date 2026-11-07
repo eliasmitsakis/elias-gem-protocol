@@ -203,19 +203,33 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, 
       : ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
     const styledPrompt = prompt + STYLE_SUFFIX;
 
-    const falRes = await fetch('https://fal.run/fal-ai/flux/schnell', {
+    const falEndpoint = isHellMode
+      ? 'https://fal.run/fal-ai/flux/dev'
+      : 'https://fal.run/fal-ai/flux/schnell';
+    const falPayload = isHellMode
+      ? {
+          prompt: styledPrompt,
+          image_size: 'square_hd',
+          num_inference_steps: 28,
+          guidance_scale: 3.5,
+          num_images: 1,
+          enable_safety_checker: false,
+        }
+      : {
+          prompt: styledPrompt,
+          image_size: 'square_hd',
+          num_inference_steps: 4,
+          num_images: 1,
+          enable_safety_checker: false,
+        };
+
+    const falRes = await fetch(falEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${process.env.FAL_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt: styledPrompt,
-        image_size: 'square_hd',
-        num_inference_steps: 4,
-        num_images: 1,
-        enable_safety_checker: false,
-      }),
+      body: JSON.stringify(falPayload),
     });
 
     if (!falRes.ok) {

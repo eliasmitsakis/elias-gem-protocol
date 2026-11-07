@@ -294,6 +294,8 @@ export default function CyberZenPortal() {
   // Audio and Glow states
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
+  const hellAudioRef = useRef<HTMLAudioElement>(null);
+  const crossfadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   // Copy link feedback state (stores the id of the record whose link was just copied)
@@ -471,17 +473,89 @@ export default function CyberZenPortal() {
     }
   };
 
-  const toggleAmbient = () => {
-    if (ambientAudioRef.current) {
-      if (isAmbientPlaying) {
-        ambientAudioRef.current.pause();
-        setIsAmbientPlaying(false);
-      } else {
-        ambientAudioRef.current.volume = 0.2;
-        ambientAudioRef.current.play()
-          .then(() => setIsAmbientPlaying(true))
-          .catch(e => console.error("Audio play failed", e));
+  const TARGET_AMBIENT_VOLUME = 0.2;
+
+  const crossfadeAmbientTracks = (toHellMode: boolean) => {
+    const zenAudio = ambientAudioRef.current;
+    const hellAudio = hellAudioRef.current;
+    if (!zenAudio || !hellAudio) return;
+
+    if (crossfadeIntervalRef.current) {
+      clearInterval(crossfadeIntervalRef.current);
+      crossfadeIntervalRef.current = null;
+    }
+
+    if (!isAmbientPlaying) {
+      zenAudio.pause();
+      hellAudio.pause();
+      return;
+    }
+
+    const incoming = toHellMode ? hellAudio : zenAudio;
+    const outgoing = toHellMode ? zenAudio : hellAudio;
+
+    incoming.volume = Math.min(incoming.volume || 0, TARGET_AMBIENT_VOLUME);
+    incoming.play().catch((e) => console.error('Audio crossfade play failed', e));
+
+    const steps = 16;
+    const stepMs = 40; // ~640ms smooth crossfade
+    let currentStep = 0;
+    const startOutVol = outgoing.paused ? 0 : outgoing.volume;
+    const startInVol = incoming.volume;
+
+    crossfadeIntervalRef.current = setInterval(() => {
+      currentStep++;
+      const progress = Math.min(1, currentStep / steps);
+      incoming.volume = Math.min(TARGET_AMBIENT_VOLUME, startInVol + (TARGET_AMBIENT_VOLUME - startInVol) * progress);
+      outgoing.volume = Math.max(0, startOutVol * (1 - progress));
+
+      if (progress >= 1) {
+        outgoing.pause();
+        outgoing.volume = 0;
+        incoming.volume = TARGET_AMBIENT_VOLUME;
+        if (crossfadeIntervalRef.current) {
+          clearInterval(crossfadeIntervalRef.current);
+          crossfadeIntervalRef.current = null;
+        }
       }
+    }, stepMs);
+  };
+
+  const toggleAmbient = () => {
+    const zenAudio = ambientAudioRef.current;
+    const hellAudio = hellAudioRef.current;
+    if (!zenAudio || !hellAudio) return;
+
+    if (crossfadeIntervalRef.current) {
+      clearInterval(crossfadeIntervalRef.current);
+      crossfadeIntervalRef.current = null;
+    }
+
+    if (isAmbientPlaying) {
+      zenAudio.pause();
+      hellAudio.pause();
+      setIsAmbientPlaying(false);
+    } else {
+      const activeAudio = hellMode ? hellAudio : zenAudio;
+      const inactiveAudio = hellMode ? zenAudio : hellAudio;
+      inactiveAudio.pause();
+      inactiveAudio.volume = 0;
+      activeAudio.volume = 0;
+      activeAudio.play()
+        .then(() => {
+          setIsAmbientPlaying(true);
+          // Gentle fade-in on start
+          let step = 0;
+          crossfadeIntervalRef.current = setInterval(() => {
+            step++;
+            activeAudio.volume = Math.min(TARGET_AMBIENT_VOLUME, (step / 10) * TARGET_AMBIENT_VOLUME);
+            if (step >= 10 && crossfadeIntervalRef.current) {
+              clearInterval(crossfadeIntervalRef.current);
+              crossfadeIntervalRef.current = null;
+            }
+          }, 35);
+        })
+        .catch(e => console.error("Audio play failed", e));
     }
   };
 
@@ -633,6 +707,7 @@ export default function CyberZenPortal() {
     
     return () => {
       if (typingIntervalRef.current) clearInterval(typingIntervalRef.current);
+      if (crossfadeIntervalRef.current) clearInterval(crossfadeIntervalRef.current);
     };
   }, []);
 
@@ -898,6 +973,7 @@ sys.stderr = io.StringIO()
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
 
       <audio ref={ambientAudioRef} loop src="/audio/cyberzen-theme.mp3" />
+      <audio ref={hellAudioRef} loop src="/audio/hellmode-distorted-ambience.mp3" />
       
       <div className="cyber-zen-bg"></div>
 
@@ -907,8 +983,14 @@ sys.stderr = io.StringIO()
         {/* Ambient Audio Toggle */}
         <button 
           onClick={toggleAmbient}
-          className={`p-3 rounded-full border transition-all ${isAmbientPlaying ? 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow' : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'}`}
-          title="Toggle Ambient Soundscape"
+          className={`p-3 rounded-full border transition-all ${
+            isAmbientPlaying
+              ? hellMode
+                ? 'bg-red-950/60 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.45)] text-red-300'
+                : 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow'
+              : 'bg-black/60 border-gold/40 text-gold/60 hover:bg-gold/10'
+          }`}
+          title={hellMode ? "Toggle Hell Mode Distorted Ambience" : "Toggle Ambient Soundscape"}
         >
           🎧
         </button>
@@ -1104,6 +1186,7 @@ sys.stderr = io.StringIO()
               onClick={() => {
                 const next = !hellMode;
                 setHellMode(next);
+                crossfadeAmbientTracks(next);
                 if (next) playChimeSound(true);
                 else playTypingSound();
               }}
