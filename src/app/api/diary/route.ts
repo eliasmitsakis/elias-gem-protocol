@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
+export const maxDuration = 60;
+
 const apiKey = process.env.GOOGLE_API_KEY;
 const ADMIN_EMAILS = ['elias.gemprotocol@gmail.com', 'eliasmitsakis@gmail.com'];
 
@@ -167,7 +169,7 @@ export async function POST(req: Request) {
     const dynamicSymbolism = parsedData.imagePrompt || "A cybernetic mystic with a third-eye circuit staring into a fractured mirror";
     const imagePrompt = `A dark occult cyberpunk Tarot card portrait, ornate symmetrical filigree gothic border, glowing cybernetic halo, ancient mystical runes, nameplate banner at the bottom with archetype title "${archetypeTitle}", dark fantasy masterpiece, FLUX quality. Central archetype & symbolism: ${dynamicSymbolism}. ${
       isHellMode
-        ? 'Neon crimson and blood red ornate gothic filigree border, glowing blood-red and deep violet cybernetic halo, crimson neon runes, dark industrial occult tarot card, pitch-black background.'
+        ? 'Neon crimson and ruby red ornate gothic filigree border, glowing crimson-red and deep violet cybernetic halo, crimson neon runes, dark industrial occult tarot card, pitch-black background.'
         : 'Glowing amethyst violet and antique gold ornate gothic filigree border, luminous purple cybernetic halo, arcane neon runes, cyber-zen tarot card, pitch-black background.'
     }`;
     const aethericCode = parsedData.aethericCode || "# The system analyzed the void, and the void compiled.\nprint('Silence.')";
@@ -224,36 +226,101 @@ export async function POST(req: Request) {
   }
 }
 
+function sanitizePromptForFal(input: string): string {
+  const replacements: Array<[RegExp, string]> = [
+    [/\bchest cavity is ripped open\b/gi, 'cybernetic chassis is opened'],
+    [/\bchest cavity\b/gi, 'core housing'],
+    [/\bripped open\b/gi, 'split open'],
+    [/\btorn open\b/gi, 'split open'],
+    [/\bpried open\b/gi, 'unsealed'],
+    [/\bbleeding\b/gi, 'radiating'],
+    [/\bblood-crimson\b/gi, 'neon-crimson'],
+    [/\bblood crimson\b/gi, 'neon crimson'],
+    [/\bblood-red\b/gi, 'crimson-red'],
+    [/\bblood red\b/gi, 'crimson red'],
+    [/\bblood-slick\b/gi, 'oil-slick'],
+    [/\bblood\b/gi, 'crimson plasma'],
+    [/\bgore\b/gi, 'oxidized chrome'],
+    [/\bslaughterhouse\b/gi, 'industrial foundry'],
+    [/\babattoir\b/gi, 'industrial monolith'],
+    [/\bslaughter\b/gi, 'industrial'],
+    [/\bbutcher\b/gi, 'iron smith'],
+    [/\bcorpse\b/gi, 'cybernetic husk'],
+    [/\bmutilated\b/gi, 'fractured'],
+    [/\bdisembodied\b/gi, 'spectral'],
+    [/\bsevered\b/gi, 'detached'],
+    [/\bscreaming human skulls\b/gi, 'glowing metallic masks'],
+    [/\bhuman skulls\b/gi, 'chrome masks'],
+    [/\bskulls\b/gi, 'metallic masks'],
+    [/\bskull\b/gi, 'chrome cranium'],
+    [/\bribcage\b/gi, 'titanium frame'],
+    [/\bviscera\b/gi, 'fiber-optic bundles'],
+    [/\bflesh\b/gi, 'synthetic carbon'],
+    [/\bmeat\b/gi, 'alloy'],
+    [/\bnooses?\b/gi, 'suspended cables'],
+    [/\bsuicide\b/gi, 'system termination'],
+    [/\bself-harm\b/gi, 'circuit overload'],
+    [/\bwounds?\b/gi, 'fractures'],
+    [/\bviolent(ly)?\b/gi, 'intensely'],
+  ];
+  let out = input;
+  for (const [regex, replacement] of replacements) {
+    out = out.replace(regex, replacement);
+  }
+  return out;
+}
+
 async function generateImageAndUpload(styledPrompt: string, supabaseAdminClient: any, isHellMode = false) {
   try {
     const falEndpoint = isHellMode
       ? 'https://fal.run/fal-ai/flux/dev'
       : 'https://fal.run/fal-ai/flux/schnell';
-    const falPayload = isHellMode
-      ? {
-          prompt: styledPrompt,
-          image_size: 'portrait_4_3',
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-          enable_safety_checker: false,
-        }
-      : {
-          prompt: styledPrompt,
-          image_size: 'portrait_4_3',
-          num_inference_steps: 4,
-          num_images: 1,
-          enable_safety_checker: false,
-        };
 
-    const falRes = await fetch(falEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${process.env.FAL_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(falPayload),
-    });
+    const callFal = async (candidatePrompt: string) => {
+      const falPayload = isHellMode
+        ? {
+            prompt: candidatePrompt,
+            image_size: 'portrait_4_3',
+            num_inference_steps: 28,
+            guidance_scale: 3.5,
+            num_images: 1,
+            enable_safety_checker: false,
+          }
+        : {
+            prompt: candidatePrompt,
+            image_size: 'portrait_4_3',
+            num_inference_steps: 4,
+            num_images: 1,
+            enable_safety_checker: false,
+          };
+
+      return fetch(falEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${process.env.FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(falPayload),
+      });
+    };
+
+    let falRes = await callFal(styledPrompt);
+
+    if (!falRes.ok) {
+      const sanitized = sanitizePromptForFal(styledPrompt);
+      if (sanitized !== styledPrompt || falRes.status >= 500) {
+        falRes = await callFal(sanitized);
+      }
+    }
+
+    if (!falRes.ok) {
+      const safeTarotFallback = `A dark occult cyberpunk Tarot card portrait, ornate symmetrical filigree gothic border, glowing cybernetic halo, ancient mystical runes, nameplate banner at the bottom with archetype title "THE CRACKED PRISM", dark fantasy masterpiece, FLUX quality. Central archetype & symbolism: A hooded cybernetic philosopher holding a glowing prism before a shattered obsidian mirror. ${
+        isHellMode
+          ? 'Neon crimson and ruby red ornate gothic filigree border, glowing crimson-red and deep violet cybernetic halo, crimson neon runes, pitch-black background.'
+          : 'Glowing amethyst violet and antique gold ornate gothic filigree border, luminous purple cybernetic halo, arcane neon runes, pitch-black background.'
+      }`;
+      falRes = await callFal(safeTarotFallback);
+    }
 
     if (!falRes.ok) return null;
 

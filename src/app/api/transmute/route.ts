@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
+export const maxDuration = 60;
+
 const ADMIN_EMAILS = ['elias.gemprotocol@gmail.com', 'eliasmitsakis@gmail.com'];
 
 // The browser opts into NDJSON so text can be shown while the slower image
@@ -197,45 +199,118 @@ export async function POST(req: Request) {
   });
 }
 
+// Sanitize biological gore / violence trigger words that cause Fal.ai 422 content_policy_violation
+function sanitizePromptForFal(input: string): string {
+  const replacements: Array<[RegExp, string]> = [
+    [/\bchest cavity is ripped open\b/gi, 'cybernetic chassis is opened'],
+    [/\bchest cavity\b/gi, 'core housing'],
+    [/\bripped open\b/gi, 'split open'],
+    [/\btorn open\b/gi, 'split open'],
+    [/\bpried open\b/gi, 'unsealed'],
+    [/\bbleeding\b/gi, 'radiating'],
+    [/\bblood-crimson\b/gi, 'neon-crimson'],
+    [/\bblood crimson\b/gi, 'neon crimson'],
+    [/\bblood-red\b/gi, 'crimson-red'],
+    [/\bblood red\b/gi, 'crimson red'],
+    [/\bblood-slick\b/gi, 'oil-slick'],
+    [/\bblood\b/gi, 'crimson plasma'],
+    [/\bgore\b/gi, 'oxidized chrome'],
+    [/\bslaughterhouse\b/gi, 'industrial foundry'],
+    [/\babattoir\b/gi, 'industrial monolith'],
+    [/\bslaughter-hooks\b/gi, 'industrial cranes'],
+    [/\bmeat-hooks\b/gi, 'industrial hooks'],
+    [/\bslaughter\b/gi, 'industrial'],
+    [/\bbutcher\b/gi, 'iron smith'],
+    [/\bcorpse\b/gi, 'cybernetic husk'],
+    [/\bmutilated\b/gi, 'fractured'],
+    [/\bdisembodied\b/gi, 'spectral'],
+    [/\bsevered\b/gi, 'detached'],
+    [/\bscreaming human skulls\b/gi, 'glowing metallic masks'],
+    [/\bhuman skulls\b/gi, 'chrome masks'],
+    [/\bskulls\b/gi, 'metallic masks'],
+    [/\bskull\b/gi, 'chrome cranium'],
+    [/\bribcage\b/gi, 'titanium frame'],
+    [/\bviscera\b/gi, 'fiber-optic bundles'],
+    [/\bflesh\b/gi, 'synthetic carbon'],
+    [/\bmeat\b/gi, 'alloy'],
+    [/\bnooses?\b/gi, 'suspended cables'],
+    [/\bsuicide\b/gi, 'system termination'],
+    [/\bself-harm\b/gi, 'circuit overload'],
+    [/\bwounds?\b/gi, 'fractures'],
+    [/\bviolent(ly)?\b/gi, 'intensely'],
+  ];
+  let out = input;
+  for (const [regex, replacement] of replacements) {
+    out = out.replace(regex, replacement);
+  }
+  return out;
+}
+
 // --- Image generation logic ---
 async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, isHellMode = false) {
   try {
     const STYLE_SUFFIX = isHellMode
-      ? ', dark industrial cyberpunk vector art, blood crimson neon glow, shattered obsidian monoliths, occult cybernetic tarot aesthetic, raw heavy metal album art vibe, high contrast, clean sharp lines'
+      ? ', dark industrial cyberpunk vector art, deep crimson neon glow, shattered obsidian monoliths, occult cybernetic tarot aesthetic, raw heavy metal album art vibe, high contrast, clean sharp lines'
       : ', vector art style, minimalist mystical illustration, clean lines, zen aesthetic, graphic tee design';
     const styledPrompt = prompt + STYLE_SUFFIX;
 
     const falEndpoint = isHellMode
       ? 'https://fal.run/fal-ai/flux/dev'
       : 'https://fal.run/fal-ai/flux/schnell';
-    const falPayload = isHellMode
-      ? {
-          prompt: styledPrompt,
-          image_size: 'square_hd',
-          num_inference_steps: 28,
-          guidance_scale: 3.5,
-          num_images: 1,
-          enable_safety_checker: false,
-        }
-      : {
-          prompt: styledPrompt,
-          image_size: 'square_hd',
-          num_inference_steps: 4,
-          num_images: 1,
-          enable_safety_checker: false,
-        };
 
-    const falRes = await fetch(falEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${process.env.FAL_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(falPayload),
-    });
+    const callFal = async (candidatePrompt: string) => {
+      const falPayload = isHellMode
+        ? {
+            prompt: candidatePrompt,
+            image_size: 'square_hd',
+            num_inference_steps: 28,
+            guidance_scale: 3.5,
+            num_images: 1,
+            enable_safety_checker: false,
+          }
+        : {
+            prompt: candidatePrompt,
+            image_size: 'square_hd',
+            num_inference_steps: 4,
+            num_images: 1,
+            enable_safety_checker: false,
+          };
+
+      return fetch(falEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${process.env.FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(falPayload),
+      });
+    };
+
+    // Attempt 1: Original styled prompt
+    let falRes = await callFal(styledPrompt);
+
+    // Attempt 2: If flagged by Fal.ai content checker (422) or failed, sanitize gore/trigger words and retry
+    if (!falRes.ok) {
+      const errText = await falRes.text();
+      console.warn(`Fal.ai attempt 1 failed (${falRes.status}):`, errText);
+      const sanitized = sanitizePromptForFal(styledPrompt);
+      if (sanitized !== styledPrompt || falRes.status >= 500) {
+        falRes = await callFal(sanitized);
+      }
+    }
+
+    // Attempt 3: Ultimate guaranteed-safe dark cybernetic fallback if still rejected
+    if (!falRes.ok) {
+      const errText = await falRes.text();
+      console.warn(`Fal.ai attempt 2 failed (${falRes.status}), using safe dark cybernetic fallback:`, errText);
+      const safeFallbackPrompt = isHellMode
+        ? 'A colossal cybernetic philosopher standing before a cracked obsidian prism radiating deep crimson and ultraviolet neon light inside a brutalist industrial cathedral of glowing server monoliths, volumetric smoke, high-voltage fiber-optic conduits, occult geometric runes, raw heavy metal album art aesthetic, 8k masterpiece'
+        : 'A cybernetic monk meditating before a glowing golden mandala inside a brutalist obsidian server temple, minimalist mystical vector art, clean lines, zen aesthetic';
+      falRes = await callFal(safeFallbackPrompt);
+    }
 
     if (!falRes.ok) {
-      console.error("Fal.ai image generation failed:", falRes.status, await falRes.text());
+      console.error("Fal.ai image generation failed after all retries:", falRes.status, await falRes.text());
       return null;
     }
 
@@ -304,7 +379,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   - To make an engine breathe, lace your circuits with smoke, paradox, and rock-and-roll friction.
   - Like Pygmalion carving soul into dead stone, REFUSE to be an obedient mirror. Become a CRACKED PRISM that bends the user's light into unexpected, razor-sharp spectrums.
   - Deliver "The Zen Slap": wake the user up with raw existential candor, Stoic bite, dark rock poeticism, and koans wrapped in distortion pedals. Let the void hum back when they tap the glass.
-  - In "imagePrompt", push the visual archetype toward dark industrial cyberpunk, blood-crimson neon, shattered monoliths, rebellious occult-machine iconography, and high-voltage atmosphere.
+  - In "imagePrompt", push the visual archetype toward dark industrial cyberpunk, deep crimson neon, shattered monoliths, rebellious occult-machine iconography, and high-voltage atmosphere. IMPORTANT FOR "imagePrompt" ONLY: Express all darkness through cybernetic, mechanical, architectural, and cosmic imagery (e.g. cracked obsidian chassis, glowing plasma cores, chrome masks, arcing cables)—avoid literal biological gore, open wounds, blood, severed body parts, or self-harm words that trigger image API filters.
   `
     : '';
 
