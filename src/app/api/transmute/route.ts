@@ -403,15 +403,26 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   `
     : '';
 
+  const trimmedInput = (vibrationText || '').trim();
+  const isSystemPlaceholder =
+    trimmedInput.startsWith('⚡ [BURNING THE SCRIPT') ||
+    trimmedInput.startsWith('[DIARY OF A MADMAN');
+  const userResidue = isSystemPlaceholder ? '' : trimmedInput;
+  const hasUserResidue = Boolean(userResidue);
+
   const burnTheScriptMandate = isBurnTheScript
     ? `
   ⚡ BURN THE SCRIPT MODE (AUTONOMOUS ORACLE DREAM) ⚡
   - The user has surrendered the keyboard and commanded you to BURN THE SCRIPT.
   - Inspiration Chaos Seed (use as a springboard or subvert it completely): "${randomSeed}"
-  - User's prior residue (if any): "${vibrationText}"
-  - FIRST, invent a brand-new, razor-sharp, paradoxical, philosophical/cyber-alchemical thought or question in ENGLISH (1-2 sentences max) and return it in the "autonomousPrompt" JSON field.
+  - User's input / prior residue: "${userResidue || '(None — blank slate)'}"
+  - FIRST, invent a brand-new, razor-sharp, paradoxical, philosophical/cyber-alchemical thought or question (1-2 sentences max) and return it in the "autonomousPrompt" JSON field.
+    ${
+      hasUserResidue
+        ? `* Because the user provided input/residue ("${userResidue}"), weave or subvert its theme AND write "autonomousPrompt" in the EXACT SAME LANGUAGE as the user's input (e.g., if the user wrote in Greek, "autonomousPrompt" MUST be in Greek!).`
+        : `* Because the input was blank, write "autonomousPrompt" in ENGLISH.`
+    }
   - THEN, transmute that exact "autonomousPrompt" across all 5 layers below!
-  - All outputs ("autonomousPrompt", "description", "seedOfTruth", "aethericCode", "imagePrompt") MUST be in ENGLISH.
   `
     : '';
 
@@ -421,7 +432,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   Tone: ${isHellMode ? 'Raw, unfiltered, paradoxical, razor-sharp (Cracked Prism / Zen Slap / Rock & Roll Friction / Zero Corporate Honey).' : 'Minimalist, profound, slightly witty (Rock, Drugs & Buddha style).'}
   ${hellModeMandate}
   ${burnTheScriptMandate}
-  Input Vibration: "${vibrationText}"
+  Input Vibration: "${userResidue}"
 
   THE 5 LAYERS OF TRANSMUTATION:
   1. Historical & Mythological: Identify historical roots, archetypes, or mythological parallels related to the input.
@@ -431,13 +442,25 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   5. Visual Archetype (imagePrompt): Synthesize recognizable visual symbols of the input with gothic, cyberpunk, or cybernetic landscapes into a unified aesthetic. IMPORTANT: Do not use generic evasions like "a figure resembling..." or "like a...". Use the precise, exact name of the entity, mascot, or character if one is recognized. AI Image models need the exact identifying name to render accurately.
 
   CRITICAL LANGUAGE RULES:
-  1. ${isBurnTheScript ? 'Because BURN THE SCRIPT is active, ALL fields ("autonomousPrompt", "description", "seedOfTruth", "aethericCode", "imagePrompt") MUST be in English.' : "Detect the language of the 'Input Vibration' above."}
-  2. ${isBurnTheScript ? 'Keep "description" and "seedOfTruth" in English.' : 'The "description" and "seedOfTruth" MUST be generated in the exact same language as the input.'}
-  3. The "aethericCode" MUST remain in Python (English variables/logic), ${isBurnTheScript ? 'with English comments and print statements.' : 'but any inline comments (#) and print statement strings should be in the detected user\'s language.'}
-  4. The "imagePrompt" must remain in English, as AI image models understand English best.
+  1. ${
+    isBurnTheScript && !hasUserResidue
+      ? 'Because BURN THE SCRIPT was triggered with an empty input, ALL fields ("autonomousPrompt", "description", "seedOfTruth", "aethericCode", "imagePrompt") MUST be in English.'
+      : "Detect the language of the 'Input Vibration' above (e.g., Greek, English, etc.)."
+  }
+  2. ${
+    isBurnTheScript && !hasUserResidue
+      ? 'Keep "autonomousPrompt", "description", and "seedOfTruth" in English.'
+      : 'The "description", "seedOfTruth", and (if BURN THE SCRIPT is active) "autonomousPrompt" MUST be generated in the EXACT SAME LANGUAGE as the detected Input Vibration.'
+  }
+  3. The "aethericCode" MUST remain in Python (English variables/logic), ${
+    isBurnTheScript && !hasUserResidue
+      ? 'with English comments and print statements.'
+      : "but any inline comments (#) and print statement strings MUST be in the detected user's language."
+  }
+  4. The "imagePrompt" must ALWAYS remain in English, as AI image models understand English best.
 
   Output Format: Strict JSON ONLY with these exact keys:
-  ${isBurnTheScript ? '0. "autonomousPrompt": A profound, paradoxical 1-2 sentence existential/cyber-alchemical prompt in English that the Oracle dreamed up on its own.\n  ' : ''}1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
+  ${isBurnTheScript ? '0. "autonomousPrompt": A profound, paradoxical 1-2 sentence existential/cyber-alchemical prompt that the Oracle dreamed up (in the user\'s input language if input was provided, or English if blank).\n  ' : ''}1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
   2. "aethericCode": A functional Python snippet (layer 4) reflecting the vibe.
   3. "seedOfTruth": A deep, punchy quote capturing the core essence. STRICT LIMIT: Maximum 15 words.
   4. "imagePrompt": A detailed, cinematic prompt (layer 5) for an AI Image Generator to visualize the vibe in English.
@@ -448,6 +471,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   const result = await ai.models.generateContent({
     model: 'gemini-3.8-flash', // Stable model ID; 3.7 Flash is deprecated
     contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
+    config: { responseMimeType: 'application/json' },
   });
 
   const textResponse = result.text ?? '';
