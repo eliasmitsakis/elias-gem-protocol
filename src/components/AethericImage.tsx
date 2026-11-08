@@ -3,6 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 
+// Module-level session cache & in-flight deduplication so newly generated images,
+// Main Card + Scroll Card pairs, and Scroll replays resolve in 0ms without duplicate round-trips.
+const recordImageCache = new Map<string, string>();
+const inFlightRecordRequests = new Map<string, Promise<string>>();
+
+export function primeRecordImageCache(recordId: string | number | null | undefined, url: string | null | undefined) {
+  if (!recordId || !url) return;
+  recordImageCache.set(String(recordId), url);
+}
+
 export const AethericImage = ({
   prompt,
   imageUrl,
@@ -27,18 +37,35 @@ export const AethericImage = ({
   onImageLoaded?: (url: string) => void;
 }) => {
   const { session } = useAuth();
+  const cacheKey = recordId ? String(recordId) : null;
+  const initialCached = cacheKey ? (recordImageCache.get(cacheKey) ?? null) : null;
+  const isDirectDataOrBlob = Boolean(imageUrl && (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')));
+
   const [authenticatedImageUrl, setAuthenticatedImageUrl] = useState<string | null>(null);
-  const [privateImageUrl, setPrivateImageUrl] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [privateImageUrl, setPrivateImageUrl] = useState<string | null>(
+    initialCached || (isDirectDataOrBlob ? imageUrl! : null)
+  );
+  const [loaded, setLoaded] = useState(Boolean(initialCached || isDirectDataOrBlob));
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
   const imgRef = React.useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    setLoaded(false);
+    const cached = cacheKey ? (recordImageCache.get(cacheKey) ?? null) : null;
+    const direct = Boolean(imageUrl && (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')));
+    if (cached) {
+      setPrivateImageUrl(cached);
+      setLoaded(true);
+    } else if (direct && imageUrl) {
+      if (cacheKey) recordImageCache.set(cacheKey, imageUrl);
+      setPrivateImageUrl(imageUrl);
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
     setHasError(false);
     setUseFallback(false);
-  }, [prompt, imageUrl]);
+  }, [prompt, imageUrl, cacheKey]);
 
   const needsGeneration = !noFallback && (useFallback || !imageUrl);
   useEffect(() => {
@@ -69,36 +96,60 @@ export const AethericImage = ({
   }, [needsGeneration, prompt, width, height, session?.access_token]);
 
   useEffect(() => {
-    if (!recordId || !imageUrl || !session?.access_token) {
-      setPrivateImageUrl(null);
+    if (!cacheKey || !imageUrl || !session?.access_token) {
+      if (!cacheKey) setPrivateImageUrl(null);
       return;
     }
-    const controller = new AbortController();
-    let blobUrl: string | null = null;
-    setPrivateImageUrl(null);
-    fetch('/api/record-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`
-      },
-      body: JSON.stringify({ recordId }),
-      signal: controller.signal,
-    }).then(async response => {
-      if (!response.ok) throw new Error('Unable to load private record image');
-      const blob = await response.blob();
-      if (!controller.signal.aborted) {
-        blobUrl = URL.createObjectURL(blob);
-        setPrivateImageUrl(blobUrl);
-      }
-    }).catch(() => {
-      if (!controller.signal.aborted) setHasError(true);
-    });
+    // Instant hit from memory cache or inline data/blob URL
+    const existing = recordImageCache.get(cacheKey);
+    if (existing) {
+      setPrivateImageUrl(existing);
+      setLoaded(true);
+      return;
+    }
+    if (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:')) {
+      recordImageCache.set(cacheKey, imageUrl);
+      setPrivateImageUrl(imageUrl);
+      setLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    let requestPromise = inFlightRecordRequests.get(cacheKey);
+    if (!requestPromise) {
+      requestPromise = fetch('/api/record-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ recordId: cacheKey }),
+      }).then(async response => {
+        if (!response.ok) throw new Error('Unable to load private record image');
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        recordImageCache.set(cacheKey, blobUrl);
+        return blobUrl;
+      }).finally(() => {
+        inFlightRecordRequests.delete(cacheKey);
+      });
+      inFlightRecordRequests.set(cacheKey, requestPromise);
+    }
+
+    requestPromise
+      .then(blobUrl => {
+        if (!cancelled) {
+          setPrivateImageUrl(blobUrl);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHasError(true);
+      });
+
     return () => {
-      controller.abort();
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      cancelled = true;
     };
-  }, [recordId, imageUrl, session?.access_token]);
+  }, [cacheKey, imageUrl, session?.access_token]);
 
   const currentSrc = needsGeneration ? authenticatedImageUrl :
     (recordId && imageUrl ? privateImageUrl : (imageUrl || null));

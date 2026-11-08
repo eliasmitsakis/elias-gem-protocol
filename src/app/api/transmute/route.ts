@@ -133,7 +133,16 @@ export async function POST(req: Request) {
     let imageUrl: string | null = null;
     if (aiResult.imagePrompt && process.env.FAL_KEY) {
       emit('stage', { stage: 'image' });
-      const generatedUrl = await generateImageAndUpload(aiResult.imagePrompt, adminClient, isHellMode);
+      const generatedUrl = await generateImageAndUpload(
+        aiResult.imagePrompt,
+        adminClient,
+        isHellMode,
+        (previewDataUrl, expectedUrl) => {
+          // Stream the image bytes to the browser the instant Fal.ai finishes,
+          // while Supabase Storage upload + DB update complete in the background!
+          emit('image', { imageUrl: expectedUrl, previewDataUrl, id: saved.id });
+        }
+      );
       if (generatedUrl) {
         const { error: updateError } = await adminClient
           .from('akashic_records')
@@ -144,7 +153,6 @@ export async function POST(req: Request) {
           console.error('Failed to attach generated image:', updateError);
         } else {
           imageUrl = generatedUrl;
-          emit('image', { imageUrl, id: saved.id });
         }
       }
     }
@@ -247,7 +255,12 @@ function sanitizePromptForFal(input: string): string {
 }
 
 // --- Image generation logic ---
-async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, isHellMode = false) {
+async function generateImageAndUpload(
+  prompt: string,
+  supabaseAdminClient: any,
+  isHellMode = false,
+  onPreviewReady?: (previewDataUrl: string, expectedUrl: string) => void
+) {
   try {
     const STYLE_SUFFIX = isHellMode
       ? ', dark industrial cyberpunk vector art, deep crimson neon glow, shattered obsidian monoliths, occult cybernetic tarot aesthetic, raw heavy metal album art vibe, high contrast, clean sharp lines'
@@ -326,6 +339,15 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, 
         const promptHash = crypto.createHash('md5').update(prompt).digest('hex');
         const fileName = `${promptHash}.jpg`;
 
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
+        const expectedPublicUrl = `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`;
+
+        // Immediately emit inline preview to client before waiting for Supabase Storage upload
+        if (onPreviewReady) {
+          onPreviewReady(`data:image/jpeg;base64,${buffer.toString('base64')}`, expectedPublicUrl);
+        }
+
         const { error: uploadError } = await supabaseAdminClient.storage
           .from('akashic_visions')
           .upload(fileName, buffer, {
@@ -338,9 +360,7 @@ async function generateImageAndUpload(prompt: string, supabaseAdminClient: any, 
           return null;
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-        const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
-        return `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`;
+        return expectedPublicUrl;
       }
     }
   } catch (e) {

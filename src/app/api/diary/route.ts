@@ -176,9 +176,14 @@ export async function POST(req: Request) {
     const seedOfTruth = parsedData.seedOfTruth || "The sum of our madness is the equation of our soul.";
 
     // 4. Generate Image via Fal.ai
-    let imageUrl = null;
+    let imageUrl: string | null = null;
+    let previewDataUrl: string | null = null;
     if (imagePrompt && process.env.FAL_KEY) {
-      imageUrl = await generateImageAndUpload(imagePrompt, adminClient, isHellMode);
+      const imgResult = await generateImageAndUpload(imagePrompt, adminClient, isHellMode);
+      if (imgResult) {
+        imageUrl = imgResult.imageUrl;
+        previewDataUrl = imgResult.previewDataUrl;
+      }
     }
 
     // 5. Save to Akashic Records as a Diary Entry
@@ -216,6 +221,7 @@ export async function POST(req: Request) {
       vibrationText: diaryVibrationLabel,
       imagePrompt, 
       imageUrl, 
+      previewDataUrl,
       id: recordData?.id,
       hellMode: isHellMode,
     });
@@ -347,7 +353,10 @@ async function generateImageAndUpload(styledPrompt: string, supabaseAdminClient:
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
         const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
-        return `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`;
+        return {
+          imageUrl: `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`,
+          previewDataUrl: `data:image/jpeg;base64,${buffer.toString('base64')}`,
+        };
       }
     }
   } catch (e) {

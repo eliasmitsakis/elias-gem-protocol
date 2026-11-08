@@ -14,10 +14,7 @@ export async function POST(req: Request) {
   if (!token) return NextResponse.json({ error: 'Sign in required' }, { status: 401 });
 
   const userClient = createClient(supabaseUrl, anonKey);
-  const { data: { user }, error: authError } = await userClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
-  }
+  const admin = createClient(supabaseUrl, serviceKey);
 
   let recordId: unknown;
   try {
@@ -30,15 +27,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid record ID' }, { status: 400 });
   }
 
-  const admin = createClient(supabaseUrl, serviceKey);
-  const { data: record, error: queryError } = await admin
-    .from('akashic_records')
-    .select('image_url')
-    .eq('id', recordId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // Run auth verification and record lookup in parallel to save a full round-trip
+  const [
+    { data: { user }, error: authError },
+    { data: record, error: queryError },
+  ] = await Promise.all([
+    userClient.auth.getUser(token),
+    admin
+      .from('akashic_records')
+      .select('image_url, user_id')
+      .eq('id', recordId)
+      .maybeSingle(),
+  ]);
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
+  }
   if (queryError) return NextResponse.json({ error: 'Unable to read record' }, { status: 500 });
-  if (!record?.image_url) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!record?.image_url || record.user_id !== user.id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const prefix = `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/akashic_visions/`;
   if (!record.image_url.startsWith(prefix)) {
@@ -54,7 +62,7 @@ export async function POST(req: Request) {
   return new NextResponse(await blob.arrayBuffer(), {
     headers: {
       'Content-Type': blob.type || 'image/jpeg',
-      'Cache-Control': 'private, no-store',
+      'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400',
       'X-Content-Type-Options': 'nosniff'
     }
   });

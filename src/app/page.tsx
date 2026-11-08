@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import Script from 'next/script';
 import { toPng } from 'html-to-image';
 import { useAuth } from '@/lib/AuthContext';
-import { AethericImage } from '@/components/AethericImage';
+import { AethericImage, primeRecordImageCache } from '@/components/AethericImage';
 
 declare global {
   interface Window {
@@ -642,12 +642,36 @@ export default function CyberZenPortal() {
         setImagePrompt(data.imagePrompt);
         setDescription(data.assessment);
         
-        if (data.imageUrl) {
-          setCurrentImageUrl(data.imageUrl);
+        if (data.id && (data.previewDataUrl || data.imageUrl)) {
+          primeRecordImageCache(data.id, data.previewDataUrl || data.imageUrl);
+        }
+        if (data.previewDataUrl || data.imageUrl) {
+          setCurrentImageUrl(data.previewDataUrl || data.imageUrl);
         }
         
         if (data.id) {
-          setArtifactId(data.id);
+          setArtifactId(String(data.id));
+        }
+
+        // Optimistically prepend Diary entry to Aetheric Scroll immediately
+        if (data.id) {
+          const diaryRecord = {
+            id: data.id,
+            timestamp: new Date().toISOString(),
+            vibrationText: data.vibrationText || (activeHell ? "[DIARY OF A MADMAN // HELL MODE]" : "[DIARY OF A MADMAN]"),
+            description: data.assessment,
+            aethericCode: data.aethericCode,
+            seedOfTruth: data.seedOfTruth,
+            imagePrompt: data.imagePrompt,
+            imageUrl: data.imageUrl || data.previewDataUrl || null,
+            is_diary: true,
+            is_hell_mode: activeHell,
+            is_autonomous: false,
+          };
+          setAkashaRecords(prev => [diaryRecord, ...prev.filter(r => String(r.id) !== String(data.id))]);
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+          }
         }
 
         startTypingEffect(data.aethericCode, () => {
@@ -689,7 +713,16 @@ export default function CyberZenPortal() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAkashaRecords(data);
+        setAkashaRecords((prev) => {
+          const prevById = new Map(prev.map((r: any) => [String(r.id), r]));
+          return (data || []).map((row: any) => {
+            const existing = prevById.get(String(row.id));
+            return {
+              ...row,
+              imageUrl: row.imageUrl || existing?.imageUrl || null,
+            };
+          });
+        });
         if (scrollToTop && scrollContainerRef.current) {
           setTimeout(() => {
             scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -757,7 +790,13 @@ export default function CyberZenPortal() {
           executionOutput: execOutput
         }),
       });
-      fetchAkashicRecords(true);
+      if (recordId) {
+        setAkashaRecords((prev) =>
+          prev.map((r) =>
+            String(r.id) === String(recordId) ? { ...r, executionOutput: execOutput } : r
+          )
+        );
+      }
     } catch(e) {
       console.error("Failed saving to Akasha.", e);
     }
@@ -918,6 +957,27 @@ sys.stderr = io.StringIO()
           setCurrentImageUrl('');
           if (data.id) setArtifactId(String(data.id));
 
+          // Optimistically insert the new record at the top of The Aetheric Scroll immediately
+          if (data.id) {
+            const optimisticRecord = {
+              id: data.id,
+              timestamp: new Date().toISOString(),
+              vibrationText: currentVibText,
+              description: data.description,
+              aethericCode: data.aethericCode,
+              seedOfTruth: data.seedOfTruth,
+              imagePrompt: data.imagePrompt,
+              imageUrl: null,
+              is_diary: false,
+              is_hell_mode: activeHell,
+              is_autonomous: isBurn,
+            };
+            setAkashaRecords(prev => [optimisticRecord, ...prev.filter(r => String(r.id) !== String(data.id))]);
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }
+
           // Show text immediately; image generation is still running on the server.
           startTypingEffect(data.aethericCode, () => {
             void executePythonCode(
@@ -926,18 +986,27 @@ sys.stderr = io.StringIO()
             );
             playChimeSound(activeHell);
           });
-          void fetchAkashicRecords(true);
           void refreshCredits();
         } else if (event.type === 'image') {
-          if (data.imageUrl) {
-            setCurrentImageUrl(data.imageUrl);
-            setGenerationStatus('Image ready — loading your private image…');
-            void fetchAkashicRecords(true);
+          const immediateUrl = data.previewDataUrl || data.imageUrl;
+          if (immediateUrl) {
+            if (data.id) {
+              primeRecordImageCache(data.id, immediateUrl);
+              setAkashaRecords(prev =>
+                prev.map(r =>
+                  String(r.id) === String(data.id)
+                    ? { ...r, imageUrl: data.imageUrl || immediateUrl }
+                    : r
+                )
+              );
+            }
+            setCurrentImageUrl(immediateUrl);
+            setGenerationStatus('');
           }
         } else if (event.type === 'complete') {
           completed = true;
           setGenerationStatus(data.imageUrl ? '' : 'Text saved. Image unavailable for this transmutation.');
-          void fetchAkashicRecords(true);
+          void fetchAkashicRecords(false);
         } else if (event.type === 'error') {
           if (!receivedArtifact) {
             startTypingEffect(`# Error: ${data.error || 'Transmutation failed.'}`);
