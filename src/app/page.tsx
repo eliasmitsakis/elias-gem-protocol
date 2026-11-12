@@ -1110,76 +1110,132 @@ sys.stderr = io.StringIO()
                 {isTransmuting && isCurrentAutonomous ? '🔥 Burning...' : '🔥 Burn the Script'}
               </button>
 
-              {/* Mobile two-step expandable buttons (< md): Tap 1 reveals full label box, Tap 2 executes */}
+              {/* Mobile two-step dropdown buttons (< md): Tap 1 opens panel below (like UserMenu), Tap inside executes */}
               {mobileExpandedAction && (
                 <div
                   className="md:hidden fixed inset-0 z-40"
                   onClick={() => setMobileExpandedAction(null)}
                 />
               )}
-              <button
-                onClick={() => {
-                  if (mobileExpandedAction === 'diary') {
-                    setMobileExpandedAction(null);
-                    void generateDiary();
-                  } else {
-                    setMobileExpandedAction('diary');
+
+              {/* Mobile Diary of a Madman Dropdown */}
+              <div className="relative md:hidden">
+                <button
+                  onClick={() => {
+                    setMobileExpandedAction((prev) => (prev === 'diary' ? null : 'diary'));
                     playTypingSound();
-                  }
-                }}
-                disabled={diaryLoading || isTransmuting}
-                aria-label="Diary of a Madman"
-                className={`md:hidden relative z-50 h-9 flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
-                  mobileExpandedAction === 'diary'
-                    ? hellMode
-                      ? 'px-3 rounded bg-gradient-to-r from-purple-950/90 to-red-950/90 border-fuchsia-500 text-fuchsia-200 shadow-[0_0_15px_rgba(217,70,239,0.5)]'
-                      : 'px-3 rounded border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
-                    : diaryLoading
-                    ? 'w-9 rounded-full border-purple-400 text-purple-300 animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.5)]'
-                    : 'w-9 rounded-full border-purple-500/50 text-purple-300 active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
-                }`}
-                title="Diary of a Madman (1 Credit)"
-              >
-                {mobileExpandedAction === 'diary' ? (
-                  <span className="text-[10px] uppercase font-bold tracking-widest whitespace-nowrap flex items-center gap-1.5">
-                    <span>{hellMode ? '👁️🩸' : '👁️'}</span>
-                    <span>Diary of a Madman</span>
-                  </span>
-                ) : (
+                  }}
+                  disabled={diaryLoading || isTransmuting}
+                  aria-label="Diary of a Madman"
+                  aria-expanded={mobileExpandedAction === 'diary'}
+                  className={`relative z-50 w-9 h-9 rounded-full flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
+                    mobileExpandedAction === 'diary'
+                      ? hellMode
+                        ? 'border-fuchsia-400 text-fuchsia-200 shadow-[0_0_15px_rgba(217,70,239,0.5)]'
+                        : 'border-purple-400 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
+                      : diaryLoading
+                      ? 'border-purple-400 text-purple-300 animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.5)]'
+                      : hellMode
+                      ? 'border-fuchsia-500/60 text-fuchsia-300 active:scale-95 shadow-[0_0_10px_rgba(217,70,239,0.25)]'
+                      : 'border-purple-500/50 text-purple-300 active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.2)]'
+                  }`}
+                  title="Diary of a Madman (1 Credit)"
+                >
                   <span className="text-sm leading-none">{diaryLoading ? '⏳' : '👁️'}</span>
+                </button>
+
+                {mobileExpandedAction === 'diary' && (
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-black/90 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden border ${
+                      hellMode ? 'border-fuchsia-500/40' : 'border-purple-500/35'
+                    }`}
+                  >
+                    <div
+                      className={`h-px w-full bg-gradient-to-r from-transparent to-transparent ${
+                        hellMode ? 'via-fuchsia-400/70' : 'via-purple-400/60'
+                      }`}
+                    />
+                    <button
+                      onClick={() => {
+                        setMobileExpandedAction(null);
+                        void generateDiary();
+                      }}
+                      disabled={diaryLoading || isTransmuting}
+                      className={`w-full text-left px-4 py-3 transition-colors duration-200 disabled:opacity-50 ${
+                        hellMode
+                          ? 'hover:bg-fuchsia-950/50 active:bg-fuchsia-950/70'
+                          : 'hover:bg-purple-950/40 active:bg-purple-950/60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span
+                          className={`text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 ${
+                            hellMode ? 'text-fuchsia-200' : 'text-purple-300'
+                          }`}
+                        >
+                          <span>{hellMode ? '👁️🩸' : '👁️'}</span>
+                          <span>Diary of a Madman</span>
+                        </span>
+                        <span className={hellMode ? 'text-red-400 text-[10px]' : 'text-purple-400 text-[10px]'}>▶</span>
+                      </div>
+                      <p className="text-[10px] font-mono text-gold/50 leading-snug">
+                        {hellMode
+                          ? 'Unfiltered Cracked-Prism dissection (1 Credit)'
+                          : 'Psychological assessment of your entries (1 Credit)'}
+                      </p>
+                    </button>
+                  </div>
                 )}
-              </button>
-              <button
-                id="burn-the-script-mobile-btn"
-                onClick={() => {
-                  if (mobileExpandedAction === 'burn') {
-                    setMobileExpandedAction(null);
-                    void handleBurnTheScript();
-                  } else {
-                    setMobileExpandedAction('burn');
+              </div>
+
+              {/* Mobile Burn the Script Dropdown */}
+              <div className="relative md:hidden">
+                <button
+                  id="burn-the-script-mobile-btn"
+                  onClick={() => {
+                    setMobileExpandedAction((prev) => (prev === 'burn' ? null : 'burn'));
                     playTypingSound();
-                  }
-                }}
-                disabled={isBurnDisabled}
-                aria-label="Burn the Script"
-                className={`md:hidden relative z-50 h-9 flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
-                  mobileExpandedAction === 'burn'
-                    ? 'px-3 rounded border-orange-400 text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.5)]'
-                    : isTransmuting && isCurrentAutonomous
-                    ? 'w-9 rounded-full border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
-                    : 'w-9 rounded-full border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
-                }`}
-                title="Burn the Script — Autonomous Oracle (1 Credit)"
-              >
-                {mobileExpandedAction === 'burn' ? (
-                  <span className="text-[10px] uppercase font-bold tracking-widest whitespace-nowrap flex items-center gap-1.5">
-                    <span>🔥</span>
-                    <span>Burn the Script</span>
-                  </span>
-                ) : (
+                  }}
+                  disabled={isBurnDisabled}
+                  aria-label="Burn the Script"
+                  aria-expanded={mobileExpandedAction === 'burn'}
+                  className={`relative z-50 w-9 h-9 rounded-full flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
+                    mobileExpandedAction === 'burn'
+                      ? 'border-orange-400 text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.5)]'
+                      : isTransmuting && isCurrentAutonomous
+                      ? 'border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
+                      : 'border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                  }`}
+                  title="Burn the Script — Autonomous Oracle (1 Credit)"
+                >
                   <span className="text-sm leading-none">🔥</span>
+                </button>
+
+                {mobileExpandedAction === 'burn' && (
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-black/90 border border-orange-500/35 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
+                    <div className="h-px w-full bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
+                    <button
+                      onClick={() => {
+                        setMobileExpandedAction(null);
+                        void handleBurnTheScript();
+                      }}
+                      disabled={isBurnDisabled}
+                      className="w-full text-left px-4 py-3 hover:bg-orange-950/40 active:bg-orange-950/60 transition-colors duration-200 disabled:opacity-50"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-orange-300 flex items-center gap-1.5">
+                          <span>🔥</span>
+                          <span>Burn the Script</span>
+                        </span>
+                        <span className="text-orange-400 text-[10px]">▶</span>
+                      </div>
+                      <p className="text-[10px] font-mono text-gold/50 leading-snug">
+                        Let the Oracle dream an autonomous prompt (1 Credit)
+                      </p>
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           ) : (
             <SignInButton onClick={() => setShowSignInModal(true)} />
