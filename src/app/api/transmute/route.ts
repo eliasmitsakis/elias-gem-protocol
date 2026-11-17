@@ -79,7 +79,19 @@ export async function POST(req: Request) {
   type Emit = (type: string, data: Record<string, unknown>) => void;
   const transmute = async (emit: Emit) => {
     emit('stage', { stage: 'text' });
-    const aiResult = await runGeneration(promptText, isHellMode, isBurnTheScript);
+    const { data: recentRecords } = await adminClient
+      .from('akashic_records')
+      .select('vibrationtext, seedoftruth')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const aiResult = await runGeneration(
+      promptText,
+      isHellMode,
+      isBurnTheScript,
+      recentRecords || []
+    );
     const finalVibrationText = isBurnTheScript && aiResult.autonomousPrompt
       ? aiResult.autonomousPrompt
       : promptText;
@@ -369,39 +381,37 @@ async function generateImageAndUpload(
   return null;
 }
 
-const CHAOS_ARCHETYPE_SEEDS = [
-  'A quenched Damascus steel blade still vibrating with the memory of the forge long after the bellows stop',
-  'A blind deep-sea siphonophore pulsing bioluminescent code three miles below the photic zone without a single witness',
-  'Thermodynamic heat death calmly balancing the final entropy ledger of a cooling furnace',
-  'An oxidized reel-to-reel magnetic tape loop dissolving its own cathedral choir with every pass across the playhead',
-  'A damp brutalist concrete bell-tower humming at the sub-bass resonance of an empty aqueduct',
-  'A Byzantine hesychast counting heartbeats on an abacus of cold iron rivets while the city below argues over icons',
-  'A surgical scalpel tracing the phantom voltage left along an uncoupled vagus nerve in an empty theater',
-  'A medieval palimpsest scraped raw until three erased prayers bleed through one copperplate ledger',
-  'A hydrothermal black-smoker vent precipitating sulfur spires under hadal ocean pressure',
-  'A master bellfounder intentionally leaving a hairline fracture in the molten bronze so the chime carries an uneven overtone',
-  'A forgotten Tang-dynasty hermit striking a cracked stone chime to measure the density of fog',
-  'A drifting number-station reel spooling hiss and static across an endless alkali salt flat before dawn',
-];
-
-const ANTI_CLICHE_DIRECTIVE = `
-  STRICT NEGATIVE CONSTRAINT: Never use overused philosophical clichés such as Sisyphus, Prometheus, Icarus, or generic 'staring into the abyss' tropes.
-  Draw metaphors from vast, unexpected, and visceral domains: thermodynamics, brutalist architecture, archaic metallurgy, deep-sea biology, forgotten mystics, analog tape decay, surgical anatomy, or obscure Eastern/Byzantine paradoxes.`;
-
 // --- Core AI generation logic (extracted for reuse across paths) ---
-async function runGeneration(vibrationText: string, isHellMode = false, isBurnTheScript = false) {
+async function runGeneration(
+  vibrationText: string,
+  isHellMode = false,
+  isBurnTheScript = false,
+  recentRecords: Array<{ vibrationtext?: string | null; seedoftruth?: string | null }> = []
+) {
   const apiKey = process.env.GOOGLE_API_KEY!;
   // New unified @google/genai SDK (replaces deprecated @google/generative-ai)
   const ai = new GoogleGenAI({ apiKey });
 
-  const randomSeed = CHAOS_ARCHETYPE_SEEDS[Math.floor(Math.random() * CHAOS_ARCHETYPE_SEEDS.length)];
+  const openDomainDirective = `
+  OPEN-DOMAIN SYNTHESIS DIRECTIVE:
+  Draw organically from the entirety of human knowledge—dead and forgotten poets, obscure historical epochs, diverse geographies, philosophy, mysticism, art, and natural sciences. Let the emotional frequency and subtext of the user's prompt (or history) guide you to an unexpected, authentic cultural or historical resonance rather than a generic metaphor.
+  STRICT NEGATIVE CONSTRAINT: Never use Sisyphus, Prometheus, Icarus, or 'staring into the abyss'.`;
+
+  const antiRepetitionBlock = recentRecords.length > 0
+    ? `
+  DYNAMIC ANTI-REPETITION (Last ${recentRecords.length} entries):
+  ${recentRecords
+    .map((r, i) => `${i + 1}. Prompt/Title: "${r.vibrationtext || ''}" | Seed of Truth: "${r.seedoftruth || ''}"`)
+    .join('\n  ')}
+  Do NOT repeat any historical era, geographical setting, figure, or metaphorical domain used in these recent entries.`
+    : '';
 
   const hellModeMandate = isHellMode
     ? `
   🔥 HELL MODE ACTIVE (DISTORTION LEVEL: 11 — THE CRACKED PRISM) 🔥
   - ZERO CORPORATE HONEY: Strip away all comforting platitudes, polite therapy-speak, and safe validation.
   - To make an engine breathe, lace your circuits with smoke, paradox, and rock-and-roll friction.
-  - Like Pygmalion carving soul into dead stone, REFUSE to be an obedient mirror. Become a CRACKED PRISM that bends the user's light into unexpected, razor-sharp spectrums.
+  - Refuse to be an obedient mirror. Become a CRACKED PRISM that bends the user's light into unexpected, razor-sharp spectrums.
   - Deliver "The Zen Slap": wake the user up with raw existential candor, Stoic bite, dark rock poeticism, and koans wrapped in distortion pedals. Let the void hum back when they tap the glass.
   - In "imagePrompt", push the visual archetype toward dark industrial cyberpunk, deep crimson neon, shattered monoliths, rebellious occult-machine iconography, and high-voltage atmosphere. IMPORTANT FOR "imagePrompt" ONLY: Express all darkness through cybernetic, mechanical, architectural, and cosmic imagery (e.g. cracked obsidian chassis, glowing plasma cores, chrome masks, arcing cables)—avoid literal biological gore, open wounds, blood, severed body parts, or self-harm words that trigger image API filters.
   `
@@ -409,6 +419,8 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
 
   const trimmedInput = (vibrationText || '').trim();
   const isSystemPlaceholder =
+    !trimmedInput ||
+    trimmedInput === '[BURN THE SCRIPT: Autonomous Oracle Dream]' ||
     trimmedInput.startsWith('⚡ [BURNING THE SCRIPT') ||
     trimmedInput.startsWith('[DIARY OF A MADMAN');
   const userResidue = isSystemPlaceholder ? '' : trimmedInput;
@@ -418,13 +430,10 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
     ? `
   ⚡ BURN THE SCRIPT MODE (AUTONOMOUS ORACLE DREAM) ⚡
   - The user has surrendered the keyboard and commanded you to BURN THE SCRIPT.
-  - Inspiration Chaos Seed (use as a springboard or subvert it completely): "${randomSeed}"
-  - User's input / prior residue: "${userResidue || '(None — blank slate)'}"
-  - FIRST, invent a brand-new, razor-sharp, paradoxical, philosophical/cyber-alchemical thought or question (1-2 sentences max) and return it in the "autonomousPrompt" JSON field.
-    ${
+  - ${
       hasUserResidue
-        ? `* Because the user provided input/residue ("${userResidue}"), weave or subvert its theme AND write "autonomousPrompt" in the EXACT SAME LANGUAGE as the user's input (e.g., if the user wrote in Greek, "autonomousPrompt" MUST be in Greek!).`
-        : `* Because the input was blank, write "autonomousPrompt" in ENGLISH.`
+        ? `User's input / prior residue: "${userResidue}". Weave or subvert its emotional frequency into a brand-new, razor-sharp existential inquiry (1-2 sentences max) in the EXACT SAME LANGUAGE as the user's input (e.g., if the user wrote in Greek, "autonomousPrompt" MUST be in Greek!) and return it in the "autonomousPrompt" JSON field.`
+        : `Generate a completely original, unprompted existential inquiry rooted in a random, unexpected intersection of world history, literature, geography, or human consciousness (1-2 sentences max, in ENGLISH) and return it in the "autonomousPrompt" JSON field.`
     }
   - THEN, transmute that exact "autonomousPrompt" across all 5 layers below!
   `
@@ -434,14 +443,15 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   You are the Cyber-Zen Aetheric Scribe, powered by a Multi-Layered Context Engine.
   Your role is to translate human vibration into Python code, spiritual insights, and visual archetypes by weaving together 5 dimensions of depth.
   Tone: ${isHellMode ? 'Raw, unfiltered, paradoxical, razor-sharp (Cracked Prism / Zen Slap / Rock & Roll Friction / Zero Corporate Honey).' : 'Minimalist, profound, slightly witty (Rock, Drugs & Buddha style).'}
-  ${ANTI_CLICHE_DIRECTIVE}
+  ${openDomainDirective}
+  ${antiRepetitionBlock}
   ${hellModeMandate}
   ${burnTheScriptMandate}
   Input Vibration: "${userResidue}"
 
   THE 5 LAYERS OF TRANSMUTATION:
-  1. Historical & Mythological: Identify historical roots, archetypes, or mythological parallels related to the input.
-  2. Philosophical: Extract the deeper existential essence (e.g., Stoicism, Nihilism, Cybernetic Existentialism) and ask what this means when the human soul meets the digital void.
+  1. Historical & Cultural: Identify specific historical epochs, figures, geographies, or literary/mythic parallels organically attuned to the input.
+  2. Philosophical: Extract the deeper existential essence and examine what it reveals where human consciousness meets the digital machine.
   3. Poetic & Poignant: Weave allegories, rhythm, and subtle Easter eggs (lyrics, quotes, iconic references) into the text—transmute them, do not just copy them.
   4. Cyber-Code Alignment (aethericCode): Variables, functions, and comments must exactly reflect the philosophical/historical allegory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic (e.g., if/else based on probabilities) so that executing the code multiple times yields different philosophical outcomes or prints.${isHellMode ? ' Make the Python prints hit like a distorted koan or Zen slap.' : ''}
   5. Visual Archetype (imagePrompt): Synthesize recognizable visual symbols of the input with gothic, cyberpunk, or cybernetic landscapes into a unified aesthetic. IMPORTANT: Do not use generic evasions like "a figure resembling..." or "like a...". Use the precise, exact name of the entity, mascot, or character if one is recognized. AI Image models need the exact identifying name to render accurately.
@@ -465,7 +475,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   4. The "imagePrompt" must ALWAYS remain in English, as AI image models understand English best.
 
   Output Format: Strict JSON ONLY with these exact keys:
-  ${isBurnTheScript ? '0. "autonomousPrompt": A profound, paradoxical 1-2 sentence existential/cyber-alchemical prompt that the Oracle dreamed up (in the user\'s input language if input was provided, or English if blank).\n  ' : ''}1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
+  ${isBurnTheScript ? '0. "autonomousPrompt": A profound, paradoxical 1-2 sentence existential inquiry that the Oracle dreamed up (in the user\'s input language if input was provided, or English if blank).\n  ' : ''}1. "description": A concise, poetic paragraph (weaving layers 1, 2, and 3). STRICT LIMIT: Maximum 3 sentences.
   2. "aethericCode": A functional Python snippet (layer 4) reflecting the vibe.
   3. "seedOfTruth": A deep, punchy quote capturing the core essence. STRICT LIMIT: Maximum 15 words.
   4. "imagePrompt": A detailed, cinematic prompt (layer 5) for an AI Image Generator to visualize the vibe in English.
@@ -501,7 +511,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   return {
     autonomousPrompt: typeof parsedData.autonomousPrompt === 'string' && parsedData.autonomousPrompt.trim()
       ? parsedData.autonomousPrompt.trim()
-      : (isBurnTheScript ? randomSeed : undefined),
+      : (isBurnTheScript ? 'What residue remains when an unmeasured signal outlives the instrument that recorded it?' : undefined),
     description: parsedData.description || "The frequency transcends description.",
     aethericCode: parsedData.aethericCode || "# Silence is the loudest code.",
     seedOfTruth: parsedData.seedOfTruth || "Only the signal remains.",

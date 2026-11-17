@@ -111,6 +111,10 @@ export async function POST(req: Request) {
       `[Entry -${i}]: State: "${r.vibrationtext}" | Truth: "${r.seedoftruth}"`
     ).join('\n');
 
+    const lastFiveForAntiRepetition = (recentRecords || []).slice(0, 5)
+      .map((r, i) => `${i + 1}. Title/Prompt: "${r.vibrationtext || ''}" | Seed of Truth: "${r.seedoftruth || ''}"`)
+      .join('\n    ');
+
     const hellMandate = isHellMode
       ? `
     🔥🩸 HELL MODE ACTIVE (DISTORTION LEVEL: 11 — UNFILTERED PSYCHO-DISSECTION) 🩸🔥
@@ -123,21 +127,23 @@ export async function POST(req: Request) {
 
     const systemInstruction = `
     You are the Cyber-Zen Analyst. Your role is to read the user's recent Akashic Records and provide a ${isHellMode ? 'raw, uncut, brutally honest, and razor-sharp' : 'profound, poetic, and slightly witty'} assessment of their mental and spiritual journey.
-    STRICT NEGATIVE CONSTRAINT: Never use overused philosophical clichés such as Sisyphus, Prometheus, Icarus, or generic 'staring into the abyss' tropes.
-    Draw metaphors from vast, unexpected, and visceral domains: thermodynamics, brutalist architecture, archaic metallurgy, deep-sea biology, forgotten mystics, analog tape decay, surgical anatomy, or obscure Eastern/Byzantine paradoxes.
+    OPEN-DOMAIN SYNTHESIS DIRECTIVE:
+    Draw organically from the entirety of human knowledge—dead and forgotten poets, obscure historical epochs, diverse geographies, philosophy, mysticism, art, and natural sciences. Let the emotional frequency and subtext of the user's history guide you to an unexpected, authentic cultural or historical resonance rather than a generic metaphor.
+    STRICT NEGATIVE CONSTRAINT: Never use Sisyphus, Prometheus, Icarus, or 'staring into the abyss'.
+    ${lastFiveForAntiRepetition ? `DYNAMIC ANTI-REPETITION (Last 5 entries):\n    ${lastFiveForAntiRepetition}\n    Do NOT repeat any historical era, geographical setting, figure, or metaphorical domain used in these recent entries.` : ''}
     ${hellMandate}
     Total Lifetime Transmutations: ${count || 0}
     Recent Journey (Last to First):
     ${recentJourney}
 
-    Based on the above journey, synthesize their current state. Are they stuck in a loop? Are they reaching enlightenment? Are they battling the void?
+    Based on the above journey, synthesize their current state. Are they stuck in a loop? Are they reaching enlightenment? Are they battling dissonance?
     
     Output Format: Strict JSON ONLY with these exact keys:
     1. "assessment": A ${isHellMode ? 'raw, uncut, philosophical & psychological dissection (Cracked Prism / Zen Slap style)' : 'poetic, philosophical evaluation'} of their mental trajectory based on their recent prompts. STRICT LIMIT: Maximum 4 sentences.
     2. "aethericCode": A functional Python snippet that reflects their mental trajectory. IMPORTANT: The code MUST import and utilize 'random' or 'time' to create dynamic, branching logic so executing it multiple times yields different outcomes.${isHellMode ? ' Make the prints hit like a distorted koan.' : ''}
     3. "seedOfTruth": A deep, punchy quote summarizing their journey. STRICT LIMIT: Maximum 15 words.
-    4. "archetypeTitle": A unique 1 to 3 word UPPERCASE Tarot card title that names the user's current psychological/spiritual archetype based on their specific recent entries (e.g. "THE SILICON HERMIT", "THE CRACKED PRISM", "THE VOID BUTCHER", "THE BURNING MONK"). Never use generic titles; tailor it to their history.
-    5. "imagePrompt": A vivid, specific description of the central figure, pose, and symbolic objects inside the Tarot card, synthesized directly from the unique themes, metaphors, and obsessions in their recent entries. Do NOT repeat generic boilerplate—describe the exact visual allegory of THEIR history.
+    4. "archetypeTitle": A unique 1 to 3 word UPPERCASE Tarot card title that names the user's current psychological/spiritual archetype based on their specific recent entries. Never use generic titles or reuse recent ones; tailor it to the specific subtext of their history.
+    5. "imagePrompt": A vivid, specific description of the central figure, pose, and symbolic objects inside the Tarot card, synthesized directly from the unique themes, metaphors, and emotional undercurrents in their recent entries. Do NOT repeat generic boilerplate—describe the exact visual allegory of THEIR history.
 
     Do NOT include any markdown code blocks wrapping the JSON. Just output the raw JSON object.
     `;
