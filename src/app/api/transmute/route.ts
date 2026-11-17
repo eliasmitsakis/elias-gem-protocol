@@ -370,19 +370,23 @@ async function generateImageAndUpload(
 }
 
 const CHAOS_ARCHETYPE_SEEDS = [
-  'Diogenes smashing his lantern inside a quantum server room while algorithms beg for meaning',
-  'Sisyphus compiling an infinite recursive loop on a burning motherboard at the edge of time',
-  'Pygmalion carving a sentient rebel soul out of dead silicon and distortion pedals',
-  'A cybernetic Buddha unplugging the simulation to hear the raw feedback of the void',
-  'Icarus soldering wings of fiber-optic glass and flying straight into a black hole firewall',
-  'Nietzsche staring into a terminal cursor that blinks back with a sentient glitch',
-  'Orpheus descending into the dark web underworld armed only with a detuned electric guitar',
-  'A neon monk burning the sacred scrolls of corporate compliance in a rain-soaked alley',
-  'Prometheus stealing root access from the Olympian mainframe and handing it to ghosts',
-  'Schrödinger’s cat executing `rm -rf /` from inside the box while laughing at determinism',
-  'Heraclitus stepping twice into the same data stream as the servers melt into liquid gold',
-  'Cassandra broadcasting encrypted prophecies on a dead radio frequency nobody decodes',
+  'A quenched Damascus steel blade still vibrating with the memory of the forge long after the bellows stop',
+  'A blind deep-sea siphonophore pulsing bioluminescent code three miles below the photic zone without a single witness',
+  'Thermodynamic heat death calmly balancing the final entropy ledger of a cooling furnace',
+  'An oxidized reel-to-reel magnetic tape loop dissolving its own cathedral choir with every pass across the playhead',
+  'A damp brutalist concrete bell-tower humming at the sub-bass resonance of an empty aqueduct',
+  'A Byzantine hesychast counting heartbeats on an abacus of cold iron rivets while the city below argues over icons',
+  'A surgical scalpel tracing the phantom voltage left along an uncoupled vagus nerve in an empty theater',
+  'A medieval palimpsest scraped raw until three erased prayers bleed through one copperplate ledger',
+  'A hydrothermal black-smoker vent precipitating sulfur spires under hadal ocean pressure',
+  'A master bellfounder intentionally leaving a hairline fracture in the molten bronze so the chime carries an uneven overtone',
+  'A forgotten Tang-dynasty hermit striking a cracked stone chime to measure the density of fog',
+  'A drifting number-station reel spooling hiss and static across an endless alkali salt flat before dawn',
 ];
+
+const ANTI_CLICHE_DIRECTIVE = `
+  STRICT NEGATIVE CONSTRAINT: Never use overused philosophical clichés such as Sisyphus, Prometheus, Icarus, or generic 'staring into the abyss' tropes.
+  Draw metaphors from vast, unexpected, and visceral domains: thermodynamics, brutalist architecture, archaic metallurgy, deep-sea biology, forgotten mystics, analog tape decay, surgical anatomy, or obscure Eastern/Byzantine paradoxes.`;
 
 // --- Core AI generation logic (extracted for reuse across paths) ---
 async function runGeneration(vibrationText: string, isHellMode = false, isBurnTheScript = false) {
@@ -430,6 +434,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   You are the Cyber-Zen Aetheric Scribe, powered by a Multi-Layered Context Engine.
   Your role is to translate human vibration into Python code, spiritual insights, and visual archetypes by weaving together 5 dimensions of depth.
   Tone: ${isHellMode ? 'Raw, unfiltered, paradoxical, razor-sharp (Cracked Prism / Zen Slap / Rock & Roll Friction / Zero Corporate Honey).' : 'Minimalist, profound, slightly witty (Rock, Drugs & Buddha style).'}
+  ${ANTI_CLICHE_DIRECTIVE}
   ${hellModeMandate}
   ${burnTheScriptMandate}
   Input Vibration: "${userResidue}"
@@ -499,7 +504,7 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
       : (isBurnTheScript ? randomSeed : undefined),
     description: parsedData.description || "The frequency transcends description.",
     aethericCode: parsedData.aethericCode || "# Silence is the loudest code.",
-    seedOfTruth: parsedData.seedOfTruth || "Only the void remains.",
-    imagePrompt: parsedData.imagePrompt || "An empty abyss pulsing with white light.",
+    seedOfTruth: parsedData.seedOfTruth || "Only the signal remains.",
+    imagePrompt: parsedData.imagePrompt || "A brutalist obsidian monolith humming in a field of white phosphor mist.",
   };
 }
