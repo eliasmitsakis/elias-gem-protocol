@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
 export const maxDuration = 60;
@@ -469,9 +469,15 @@ async function runGeneration(vibrationText: string, isHellMode = false, isBurnTh
   `;
 
   const result = await ai.models.generateContent({
-    model: 'gemini-3.8-flash', // Stable model ID; 3.7 Flash is deprecated
+    model: 'gemini-4-hydrogen',
     contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
-    config: { responseMimeType: 'application/json' },
+    config: {
+      temperature: 0.8,
+      thinkingConfig: {
+        thinkingLevel: ThinkingLevel.LOW,
+      },
+      responseMimeType: 'application/json',
+    },
   });
 
   const textResponse = result.text ?? '';

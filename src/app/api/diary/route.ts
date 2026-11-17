@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
 export const maxDuration = 60;
@@ -141,9 +141,15 @@ export async function POST(req: Request) {
     `;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: [{ role: 'user', parts: [{ text: systemInstruction }] }],
-      config: { responseMimeType: 'application/json' },
+      config: {
+        temperature: 0.8,
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.LOW,
+        },
+        responseMimeType: 'application/json',
+      },
     });
 
     const textResponse = result.text ?? '';
