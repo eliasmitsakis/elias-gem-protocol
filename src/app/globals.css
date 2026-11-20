@@ -41,7 +41,7 @@ body {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-/* To Golden Flow Background */
+/* To Golden Flow Background (smoothly shifts to Crimson in Hell Mode) */
 .cyber-zen-bg {
   position: fixed;
   top: 0;
@@ -51,9 +51,14 @@ body {
   z-index: -1;
   background: radial-gradient(circle at center, rgba(255, 215, 0, 0.05) 0%, rgba(5,5,5,1) 70%);
   filter: blur(50px);
+  transition: background 500ms ease;
 }
 
-/* Εφέ για τα "χρυσά σωματίδια" με CSS */
+.hell-mode-theme .cyber-zen-bg {
+  background: radial-gradient(circle at center, rgba(220, 38, 38, 0.12) 0%, rgba(5, 5, 5, 1) 70%);
+}
+
+/* Digital Rain Particles */
 .particles {
   position: absolute;
   background: linear-gradient(to bottom, transparent, var(--gold), transparent);
@@ -61,6 +66,12 @@ body {
   height: 100px;
   opacity: 0.1;
   animation: fall 5s linear infinite;
+  transition: background 500ms ease, opacity 500ms ease;
+}
+
+.hell-mode-theme .particles {
+  background: linear-gradient(to bottom, transparent, #ef4444, transparent);
+  opacity: 0.22;
 }
 
 @keyframes fall {
@@ -72,6 +83,7 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--obsidian); }
 ::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.2); border-radius: 10px; }
+.hell-mode-theme ::-webkit-scrollbar-thumb { background: rgba(239, 68, 68, 0.3); }
 
 /* CRT Scanline Effect */
 .scanline {
@@ -95,16 +107,38 @@ body {
   position: relative;
 }
 
-.mouse-glow-container::before {
+.mouse-glow-container::before,
+.mouse-glow-container::after {
   content: "";
   position: absolute;
   inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 500ms ease;
+}
+
+.mouse-glow-container::before {
   background: radial-gradient(
     800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
     rgba(255, 215, 0, 0.07),
     transparent 40%
   );
-  pointer-events: none;
-  z-index: 0;
-  transition: opacity 500ms;
+  opacity: 1;
+}
+
+.mouse-glow-container::after {
+  background: radial-gradient(
+    800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(220, 38, 38, 0.12),
+    transparent 42%
+  );
+  opacity: 0;
+}
+
+.hell-mode-theme .mouse-glow-container::before {
+  opacity: 0;
+}
+
+.hell-mode-theme .mouse-glow-container::after {
+  opacity: 1;
 }

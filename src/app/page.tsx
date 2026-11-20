@@ -198,19 +198,23 @@ const SignInModal = ({
 };
 
 // ── Cyberpunk SIGN IN button (logged-out state) ───────────────────────────────
-const SignInButton = ({ onClick }: { onClick: () => void }) => (
+const SignInButton = ({ onClick, hellMode = false }: { onClick: () => void; hellMode?: boolean }) => (
   <button
     id="sign-in-btn"
     onClick={onClick}
-    className="flex items-center gap-2 px-4 py-2 bg-black/60 border border-gold/50 rounded font-mono text-[11px] uppercase tracking-[0.2em] text-gold/80 hover:bg-gold/10 hover:border-gold hover:text-gold hover:shadow-[0_0_15px_rgba(251,199,26,0.35)] transition-all duration-300"
+    className={`flex items-center gap-2 px-4 py-2 rounded font-mono text-[11px] uppercase tracking-[0.2em] border transition-all duration-500 ${
+      hellMode
+        ? 'bg-red-950/35 border-red-500/60 text-red-300 hover:bg-red-950/60 hover:border-red-400 hover:text-red-200 hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+        : 'bg-black/60 border-gold/50 text-gold/80 hover:bg-gold/10 hover:border-gold hover:text-gold hover:shadow-[0_0_15px_rgba(251,199,26,0.35)]'
+    }`}
   >
-    <span className="text-gold/50 text-xs">▶</span>
+    <span className={`text-xs transition-colors duration-500 ${hellMode ? 'text-red-400/70' : 'text-gold/50'}`}>▶</span>
     Sign In
   </button>
 );
 
 // ── User Avatar + dropdown with credits ───────────────────────────────────────
-const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | null; onSignOut: () => void }) => {
+const UserMenu = ({ user, credits, onSignOut, hellMode = false }: { user: any; credits: number | null; onSignOut: () => void; hellMode?: boolean }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const avatarUrl = user?.user_metadata?.avatar_url;
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Aetheric Adept';
@@ -221,46 +225,65 @@ const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | n
       <button
         id="user-avatar-btn"
         onClick={() => setMenuOpen(!menuOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-gold/40 rounded-full hover:border-gold hover:shadow-[0_0_10px_rgba(251,199,26,0.2)] transition-all duration-300"
+        className={`flex items-center gap-2 px-3 py-1.5 border rounded-full transition-all duration-500 ${
+          hellMode
+            ? 'bg-red-950/35 border-red-500/55 hover:border-red-400 hover:shadow-[0_0_14px_rgba(239,68,68,0.35)]'
+            : 'bg-black/60 border-gold/40 hover:border-gold hover:shadow-[0_0_10px_rgba(251,199,26,0.2)]'
+        }`}
         title={displayName}
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="Avatar" loading="lazy" className="w-6 h-6 rounded-full border border-gold/40" />
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            loading="lazy"
+            className={`w-6 h-6 rounded-full border transition-colors duration-500 ${
+              hellMode ? 'border-red-500/60' : 'border-gold/40'
+            }`}
+          />
         ) : (
-          <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-gold text-xs font-bold">
+          <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold transition-colors duration-500 ${
+            hellMode ? 'bg-red-950/50 border-red-500/60 text-red-300' : 'bg-gold/20 border-gold/40 text-gold'
+          }`}>
             {displayName[0].toUpperCase()}
           </div>
         )}
-        <span className="text-gold/80 text-xs font-mono max-w-[100px] truncate hidden sm:block">
+        <span className={`text-xs font-mono max-w-[100px] truncate hidden sm:block transition-colors duration-500 ${
+          hellMode ? 'text-red-300/90' : 'text-gold/80'
+        }`}>
           {displayName.split(' ')[0]}
         </span>
-        <span className="text-gold/40 text-xs">▾</span>
+        <span className={`text-xs transition-colors duration-500 ${hellMode ? 'text-red-400/60' : 'text-gold/40'}`}>▾</span>
       </button>
 
       {menuOpen && (
         <>
           {/* Click-outside backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute left-0 top-full mt-2 w-56 bg-black/90 border border-gold/20 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
-            {/* Gold top accent */}
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+          <div className={`absolute left-0 top-full mt-2 w-56 bg-black/90 border rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden transition-colors duration-500 ${
+            hellMode ? 'border-red-500/35' : 'border-gold/20'
+          }`}>
+            {/* Top accent */}
+            <div className={`h-px w-full bg-gradient-to-r from-transparent to-transparent ${
+              hellMode ? 'via-red-500/60' : 'via-gold/40'
+            }`} />
 
             {/* User info */}
-            <div className="px-4 py-3 border-b border-gold/10">
-              <p className="text-gold/80 text-xs font-mono truncate">{displayName}</p>
-              <p className="text-gold/40 text-[10px] truncate">{user?.email}</p>
+            <div className={`px-4 py-3 border-b ${hellMode ? 'border-red-500/15' : 'border-gold/10'}`}>
+              <p className={`text-xs font-mono truncate ${hellMode ? 'text-red-200/90' : 'text-gold/80'}`}>{displayName}</p>
+              <p className={`text-[10px] truncate ${hellMode ? 'text-red-400/50' : 'text-gold/40'}`}>{user?.email}</p>
             </div>
 
             {/* Credits display */}
-            <div className="px-4 py-3 border-b border-gold/10 flex items-center justify-between">
-              <span className="text-gold/50 text-[10px] font-mono uppercase tracking-wider">Transmutations</span>
+            <div className={`px-4 py-3 border-b flex items-center justify-between ${hellMode ? 'border-red-500/15' : 'border-gold/10'}`}>
+              <span className={`text-[10px] font-mono uppercase tracking-wider ${hellMode ? 'text-red-400/60' : 'text-gold/50'}`}>Transmutations</span>
               <span className={`text-sm font-bold font-mono ${
-                isAdmin ? 'text-nebula' :
-                credits === null ? 'text-gold/30' :
+                isAdmin ? (hellMode ? 'text-red-400' : 'text-nebula') :
+                credits === null ? (hellMode ? 'text-red-400/30' : 'text-gold/30') :
                 credits <= 0 ? 'text-red-400' :
                 credits <= 1 ? 'text-yellow-400' :
-                'text-gold'
+                hellMode ? 'text-red-300' : 'text-gold'
               }`}>
                 {isAdmin ? '∞' : credits === null ? '…' : credits}
               </span>
@@ -270,7 +293,11 @@ const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | n
             <button
               id="sign-out-btn"
               onClick={() => { setMenuOpen(false); onSignOut(); }}
-              className="w-full text-left px-4 py-3 text-xs text-nebula/70 font-mono hover:bg-nebula/10 hover:text-nebula transition-colors duration-200"
+              className={`w-full text-left px-4 py-3 text-xs font-mono transition-colors duration-200 ${
+                hellMode
+                  ? 'text-red-300/80 hover:bg-red-950/50 hover:text-red-200'
+                  : 'text-nebula/70 hover:bg-nebula/10 hover:text-nebula'
+              }`}
             >
               ⊗ Sign Out
             </button>
@@ -1089,7 +1116,7 @@ sys.stderr = io.StringIO()
   const isBurnDisabled = isTransmuting || diaryLoading || !pyodideReady || !user;
 
   return (
-    <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''}`}>
+    <div className={`transition-all duration-500 overflow-x-hidden ${isAkashaOpen ? 'pr-80' : ''} ${hellMode ? 'hell-mode-theme' : ''}`}>
       <Script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js" onLoad={initPyodide} />
 
       <audio ref={ambientAudioRef} loop src="/audio/cyberzen-theme.mp3" />
@@ -1103,11 +1130,13 @@ sys.stderr = io.StringIO()
         {/* Ambient Audio Toggle */}
         <button 
           onClick={toggleAmbient}
-          className={`w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center rounded-full border transition-all backdrop-blur-md ${
+          className={`w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center rounded-full border transition-all duration-500 backdrop-blur-md ${
             isAmbientPlaying
               ? hellMode
                 ? 'bg-red-950/70 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.45)] text-red-300'
                 : 'bg-gold/20 border-gold shadow-[0_0_15px_rgba(251,199,26,0.3)] text-gold-glow'
+              : hellMode
+              ? 'bg-red-950/35 border-red-500/50 text-red-400/80 hover:bg-red-950/60 hover:border-red-400 hover:shadow-[0_0_12px_rgba(239,68,68,0.3)]'
               : 'bg-black/70 border-gold/40 text-gold/60 hover:bg-gold/10'
           }`}
           title={hellMode ? "Toggle Hell Mode Distorted Ambience" : "Toggle Ambient Soundscape"}
@@ -1119,16 +1148,16 @@ sys.stderr = io.StringIO()
         {!authLoading && (
           user ? (
             <div className="flex flex-row md:flex-col items-center md:items-start gap-2">
-              <UserMenu user={user} credits={credits} onSignOut={signOut} />
+              <UserMenu user={user} credits={credits} onSignOut={signOut} hellMode={hellMode} />
 
               {/* Desktop full-label buttons (md+) */}
               <button
                 onClick={generateDiary}
                 disabled={diaryLoading || isTransmuting}
-                className={`hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded text-[10px] uppercase font-bold tracking-widest transition-all disabled:opacity-50 border ${
+                className={`hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded text-[10px] uppercase font-bold tracking-widest transition-all duration-300 disabled:opacity-50 border ${
                   hellMode
-                    ? 'bg-gradient-to-r from-purple-950/70 via-fuchsia-950/60 to-red-950/70 border-fuchsia-500/60 text-fuchsia-200 hover:border-red-400 hover:text-red-200 hover:shadow-[0_0_18px_rgba(217,70,239,0.5)]'
-                    : 'bg-black/60 border-purple-500/40 text-purple-400/80 hover:text-purple-300 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]'
+                    ? 'bg-gradient-to-r from-purple-950/75 via-fuchsia-950/65 to-red-950/75 border-fuchsia-500/60 text-fuchsia-200 hover:border-red-400 hover:text-red-200 hover:shadow-[0_0_18px_rgba(217,70,239,0.5)]'
+                    : 'bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border-purple-500/50 text-purple-300/90 hover:text-purple-200 hover:border-purple-400 hover:shadow-[0_0_15px_rgba(168,85,247,0.45)]'
                 }`}
                 title="Generate a psychological assessment of your recent entries (Costs 1 Credit)"
               >
@@ -1138,7 +1167,11 @@ sys.stderr = io.StringIO()
                 id="burn-the-script-btn"
                 onClick={handleBurnTheScript}
                 disabled={isBurnDisabled}
-                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 bg-black/60 border border-orange-500/40 rounded text-[10px] uppercase font-bold tracking-widest text-orange-400/85 hover:text-orange-300 hover:border-orange-400 hover:shadow-[0_0_15px_rgba(249,115,22,0.45)] transition-all disabled:opacity-50"
+                className={`hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded text-[10px] uppercase font-bold tracking-widest transition-all duration-300 border ${
+                  isTransmuting && isCurrentAutonomous
+                    ? 'bg-gradient-to-r from-orange-900/90 via-red-900/85 to-amber-900/90 border-orange-400 text-amber-100 shadow-[0_0_20px_rgba(249,115,22,0.65),0_0_10px_rgba(239,68,68,0.45)] animate-pulse'
+                    : 'bg-gradient-to-r from-orange-950/70 via-red-950/60 to-amber-950/70 border-orange-500/60 text-orange-200 shadow-[0_0_12px_rgba(249,115,22,0.22)] hover:from-orange-900/80 hover:via-red-900/70 hover:to-amber-900/80 hover:text-amber-100 hover:border-orange-400 hover:shadow-[0_0_18px_rgba(249,115,22,0.55),0_0_8px_rgba(239,68,68,0.4)] disabled:opacity-50'
+                }`}
                 title="Surrender the keyboard: let the Oracle dream an autonomous paradoxical prompt (Costs 1 Credit)"
               >
                 {isTransmuting && isCurrentAutonomous ? '🔥 Burning...' : '🔥 Burn the Script'}
@@ -1233,12 +1266,12 @@ sys.stderr = io.StringIO()
                   disabled={isBurnDisabled}
                   aria-label="Burn the Script"
                   aria-expanded={mobileExpandedAction === 'burn'}
-                  className={`relative z-50 w-9 h-9 rounded-full flex items-center justify-center bg-black/85 backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
+                  className={`relative z-50 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-all duration-200 disabled:opacity-40 ${
                     mobileExpandedAction === 'burn'
-                      ? 'border-orange-400 text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.5)]'
+                      ? 'bg-gradient-to-br from-orange-900/90 via-red-950/90 to-amber-900/90 border-orange-400 text-amber-100 shadow-[0_0_18px_rgba(249,115,22,0.6)]'
                       : isTransmuting && isCurrentAutonomous
-                      ? 'border-orange-400 text-orange-300 animate-pulse shadow-[0_0_12px_rgba(249,115,22,0.5)]'
-                      : 'border-orange-500/50 text-orange-300 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+                      ? 'bg-gradient-to-br from-orange-900/90 via-red-950/90 to-amber-900/90 border-orange-400 text-amber-100 animate-pulse shadow-[0_0_16px_rgba(249,115,22,0.6)]'
+                      : 'bg-gradient-to-br from-orange-950/85 via-red-950/75 to-amber-950/85 border-orange-500/60 text-orange-200 active:scale-95 shadow-[0_0_12px_rgba(249,115,22,0.3)]'
                   }`}
                   title="Burn the Script — Autonomous Oracle (1 Credit)"
                 >
@@ -1246,24 +1279,24 @@ sys.stderr = io.StringIO()
                 </button>
 
                 {mobileExpandedAction === 'burn' && (
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-black/90 border border-orange-500/35 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9)] backdrop-blur-xl z-50 overflow-hidden">
-                    <div className="h-px w-full bg-gradient-to-r from-transparent via-orange-400/60 to-transparent" />
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-gradient-to-br from-orange-950/90 via-black/95 to-red-950/90 border border-orange-500/50 rounded-xl shadow-[0_8px_40px_rgba(0,0,0,0.9),0_0_20px_rgba(249,115,22,0.25)] backdrop-blur-xl z-50 overflow-hidden">
+                    <div className="h-px w-full bg-gradient-to-r from-transparent via-orange-400/75 to-transparent" />
                     <button
                       onClick={() => {
                         setMobileExpandedAction(null);
                         void handleBurnTheScript();
                       }}
                       disabled={isBurnDisabled}
-                      className="w-full text-left px-4 py-3 hover:bg-orange-950/40 active:bg-orange-950/60 transition-colors duration-200 disabled:opacity-50"
+                      className="w-full text-left px-4 py-3 hover:bg-gradient-to-r hover:from-orange-950/60 hover:to-red-950/60 active:bg-orange-950/70 transition-colors duration-200 disabled:opacity-50"
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-orange-300 flex items-center gap-1.5">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-amber-200 flex items-center gap-1.5">
                           <span>🔥</span>
                           <span>Burn the Script</span>
                         </span>
                         <span className="text-orange-400 text-[10px]">▶</span>
                       </div>
-                      <p className="text-[10px] font-mono text-gold/50 leading-snug">
+                      <p className="text-[10px] font-mono text-orange-200/60 leading-snug">
                         Let the Oracle dream an autonomous prompt (1 Credit)
                       </p>
                     </button>
@@ -1272,7 +1305,7 @@ sys.stderr = io.StringIO()
               </div>
             </div>
           ) : (
-            <SignInButton onClick={() => setShowSignInModal(true)} />
+            <SignInButton onClick={() => setShowSignInModal(true)} hellMode={hellMode} />
           )
         )}
       </div>
@@ -1302,7 +1335,11 @@ sys.stderr = io.StringIO()
         {/* Floating Toggle Button for The Akashic Scroll */}
         <button 
           onClick={() => setIsAkashaOpen(!isAkashaOpen)}
-          className="w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center bg-black/70 backdrop-blur-md border border-gold/40 rounded-full text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)] transition-all animate-golden-pulse"
+          className={`w-10 h-10 md:w-auto md:h-auto md:p-3 flex items-center justify-center backdrop-blur-md border rounded-full transition-all duration-500 animate-golden-pulse ${
+            hellMode
+              ? 'bg-red-950/45 border-red-500/55 text-red-400 hover:bg-red-950/75 hover:border-red-400 hover:shadow-[0_0_18px_rgba(239,68,68,0.45)]'
+              : 'bg-black/70 border-gold/40 text-gold-glow hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.3)]'
+          }`}
           title="Toggle The Aetheric Scroll"
         >
           📜
@@ -1312,12 +1349,20 @@ sys.stderr = io.StringIO()
       {/* The Akashic Scroll Sidebar */}
       <div 
         ref={scrollContainerRef}
-        className={`fixed top-0 right-0 h-full w-80 bg-obsidian/95 border-l border-gold/20 shadow-[-10px_0_30px_rgba(0,0,0,0.8)] z-40 transform transition-transform duration-500 overflow-y-auto ${isAkashaOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 h-full w-80 bg-obsidian/95 border-l shadow-[-10px_0_30px_rgba(0,0,0,0.8)] z-40 transform transition-all duration-500 overflow-y-auto ${
+          hellMode ? 'border-red-500/25' : 'border-gold/20'
+        } ${isAkashaOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
-        <div className="pt-16 px-6 pb-6 md:p-6 relative text-gold/80 font-mono text-sm">
-           <div className="absolute top-16 bottom-0 left-[1.5rem] w-px bg-gold/10 shadow-[0_0_4px_rgba(255,215,0,0.4)] z-0"></div>
+        <div className={`pt-16 px-6 pb-6 md:p-6 relative font-mono text-sm transition-colors duration-500 ${
+          hellMode ? 'text-red-300/80' : 'text-gold/80'
+        }`}>
+           <div className={`absolute top-16 bottom-0 left-[1.5rem] w-px z-0 transition-all duration-500 ${
+             hellMode ? 'bg-red-500/20 shadow-[0_0_6px_rgba(239,68,68,0.45)]' : 'bg-gold/10 shadow-[0_0_4px_rgba(255,215,0,0.4)]'
+           }`}></div>
 
-           <h2 className="hidden md:block text-xl font-bold mb-8 text-gold-glow sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20">
+           <h2 className={`hidden md:block text-xl font-bold mb-8 sticky top-0 bg-obsidian/80 backdrop-blur pb-2 z-20 transition-colors duration-500 ${
+             hellMode ? 'text-red-400' : 'text-gold-glow'
+           }`}>
              <span className="hidden md:inline">The Aetheric Scroll</span>
            </h2>
            
@@ -1503,7 +1548,11 @@ sys.stderr = io.StringIO()
                   type="button"
                   onClick={() => void fetchAkashicRecords(false, akashaRecords.length, true)}
                   disabled={loadingMoreAkasha}
-                  className="w-full py-2.5 px-4 rounded-lg border border-gold/30 bg-black/60 text-gold/80 text-xs font-mono uppercase tracking-widest hover:border-gold hover:text-gold hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.2)] transition-all disabled:opacity-50"
+                  className={`w-full py-2.5 px-4 rounded-lg border bg-black/60 text-xs font-mono uppercase tracking-widest transition-all duration-500 disabled:opacity-50 ${
+                    hellMode
+                      ? 'border-red-500/35 text-red-300/80 hover:border-red-400 hover:text-red-200 hover:bg-red-950/30 hover:shadow-[0_0_15px_rgba(239,68,68,0.25)]'
+                      : 'border-gold/30 text-gold/80 hover:border-gold hover:text-gold hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.2)]'
+                  }`}
                 >
                   {loadingMoreAkasha ? 'Loading older records…' : 'Load More ▼'}
                 </button>
@@ -1514,21 +1563,29 @@ sys.stderr = io.StringIO()
 
       {/* Main Content Pane */}
       <div 
-        className="min-h-screen text-gold font-mono pt-20 px-4 pb-8 md:p-8 flex flex-col items-center relative z-10 w-full mouse-glow-container"
+        className={`min-h-screen font-mono pt-20 px-4 pb-8 md:p-8 flex flex-col items-center relative z-10 w-full mouse-glow-container transition-colors duration-500 ${
+          hellMode ? 'text-red-300' : 'text-gold'
+        }`}
         onMouseMove={handleMouseMove}
       >
-        <header className="mb-4 opacity-80 text-xs sm:text-sm tracking-widest uppercase animate-golden-pulse text-center">
+        <header className={`mb-4 opacity-80 text-xs sm:text-sm tracking-widest uppercase animate-golden-pulse text-center transition-colors duration-500 ${
+          hellMode ? 'text-red-400 drop-shadow-[0_0_12px_rgba(239,68,68,0.55)]' : 'text-gold'
+        }`}>
           --- Aetheric Code Scribe v2.0 ---
         </header>
 
         {generationStatus && (
-          <p role="status" aria-live="polite" className="text-nebula/80 text-xs font-mono mb-3 text-center">
+          <p role="status" aria-live="polite" className={`text-xs font-mono mb-3 text-center transition-colors duration-500 ${
+            hellMode ? 'text-red-300/85' : 'text-nebula/80'
+          }`}>
             {generationStatus}
           </p>
         )}
 
         {loadingPyodide && (
-          <div className="text-nebula text-xs animate-pulse mb-4 italic">
+          <div className={`text-xs animate-pulse mb-4 italic transition-colors duration-500 ${
+            hellMode ? 'text-red-400' : 'text-nebula'
+          }`}>
             [+] Mounting Browser WASM Python Engine...
           </div>
         )}
@@ -1937,12 +1994,16 @@ sys.stderr = io.StringIO()
         </div>
 
         <footer className="w-full text-center pb-6 mt-auto flex flex-col items-center gap-2">
-          <span className="text-xs opacity-40 hover:opacity-100 transition-opacity cursor-default">
+          <span className={`text-xs opacity-40 hover:opacity-100 transition-all duration-500 cursor-default ${
+            hellMode ? 'text-red-400' : 'text-gold'
+          }`}>
             Vibration Creates Feed | Elias &amp; Gem Protocol
           </span>
           <a
             href="mailto:elias.gemprotocol@gmail.com"
-            className="text-[11px] text-nebula/50 hover:text-nebula transition-colors duration-300 tracking-wide"
+            className={`text-[11px] transition-colors duration-500 tracking-wide ${
+              hellMode ? 'text-red-400/60 hover:text-red-300' : 'text-nebula/50 hover:text-nebula'
+            }`}
           >
             Contact &amp; Support: elias.gemprotocol@gmail.com
           </a>
