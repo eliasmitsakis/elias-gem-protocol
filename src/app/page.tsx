@@ -1731,7 +1731,7 @@ sys.stderr = io.StringIO()
                   )}
 
                   {imagePrompt && (
-                    <div className={`group relative w-full max-w-xl ${isCurrentDiary ? 'aspect-[3/4]' : 'aspect-square'} rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
+                    <div className={`group relative w-full max-w-xl rounded border-2 overflow-hidden z-10 ${
                       isHellDiary
                         ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
                         : isCurrentDiary
@@ -1742,7 +1742,16 @@ sys.stderr = io.StringIO()
                         ? 'border-orange-500/50 shadow-[0_0_22px_rgba(249,115,22,0.35)]'
                         : 'border-gold/40 shadow-[0_0_20px_rgba(251,199,26,0.3)]'
                     }`}>
-                      <AethericImage prompt={imagePrompt} imageUrl={currentImageUrl} recordId={artifactId} width={800} height={isCurrentDiary ? 1066 : 800} className="absolute inset-0 z-0" noFallback={true} />
+                      <AethericImage
+                        prompt={imagePrompt}
+                        imageUrl={currentImageUrl}
+                        recordId={artifactId}
+                        width={800}
+                        height={isCurrentDiary ? 1066 : 800}
+                        uncropped={true}
+                        className="z-0"
+                        noFallback={true}
+                      />
                       <div className="scanline"></div>
 
                       {/* ── Image Prompt Copy Icon ── */}
@@ -1782,39 +1791,34 @@ sys.stderr = io.StringIO()
                           )}
                         </button>
                       </div>
-
-                      {/* Seed of Truth Overlay (non-Diary artifacts) */}
-                      {seedOfTruth && !isCurrentDiary && (
-                        <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                          isCurrentHell ? 'border-red-500/30' : isCurrentAutonomous ? 'border-orange-500/30' : 'border-gold/20'
-                        }`}>
-                          <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                            isCurrentHell
-                              ? 'text-red-300'
-                              : isCurrentAutonomous
-                              ? 'text-orange-200'
-                              : 'text-gold-glow'
-                          }`}>
-                            "{seedOfTruth}"
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
 
-                  {/* Seed of Truth Banner below Tarot Card (Diary artifacts — keeps bottom nameplate plaque uncovered) */}
-                  {seedOfTruth && isCurrentDiary && (
-                    <div className={`mt-4 w-full max-w-xl rounded p-4 border relative z-10 ${
+                  {/* Seed of Truth Separate Banner Below Image (keeps full artwork uncropped) */}
+                  {seedOfTruth && (
+                    <div className={`mt-4 w-full max-w-xl rounded-lg px-5 py-4 border backdrop-blur-sm relative z-10 transition-colors duration-300 ${
                       isHellDiary
-                        ? 'bg-gradient-to-r from-purple-950/45 via-fuchsia-950/35 to-red-950/45 border-fuchsia-500/40'
-                        : 'bg-purple-950/30 border-purple-500/30'
+                        ? 'bg-gradient-to-r from-purple-950/50 via-fuchsia-950/40 to-red-950/50 border-fuchsia-500/45 shadow-[0_0_20px_rgba(217,70,239,0.2)]'
+                        : isCurrentDiary
+                        ? 'bg-purple-950/35 border-purple-500/35 shadow-[0_0_18px_rgba(168,85,247,0.18)]'
+                        : isCurrentHell
+                        ? 'bg-red-950/40 border-red-500/45 shadow-[0_0_20px_rgba(239,68,68,0.22)]'
+                        : isCurrentAutonomous
+                        ? 'bg-orange-950/35 border-orange-500/40 shadow-[0_0_18px_rgba(249,115,22,0.18)]'
+                        : 'bg-black/60 border-gold/30 shadow-[0_0_18px_rgba(251,199,26,0.14)]'
                     }`}>
                       <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
                         isHellDiary
                           ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-red-200 font-semibold'
-                          : 'text-purple-200'
+                          : isCurrentDiary
+                          ? 'text-purple-200'
+                          : isCurrentHell
+                          ? 'text-red-200'
+                          : isCurrentAutonomous
+                          ? 'text-orange-200'
+                          : 'text-gold-glow'
                       }`}>
-                        {isHellDiary ? '🧠🩸 ' : '🧠 '}"{seedOfTruth}"
+                        {isHellDiary ? '🧠🩸 ' : isCurrentDiary ? '🧠 ' : isCurrentHell ? '🩸 ' : isCurrentAutonomous ? '🔥 ' : '✦ '}"{seedOfTruth}"
                       </p>
                     </div>
                   )}

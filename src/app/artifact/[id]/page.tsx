@@ -150,7 +150,7 @@ export default function PrivateArtifactPage() {
             </div>
           )}
 
-          <div className={`group relative w-full ${isDiary ? 'aspect-[3/4]' : 'aspect-square'} rounded border-2 overflow-hidden flex flex-col justify-end z-10 ${
+          <div className={`group relative w-full rounded border-2 overflow-hidden z-10 ${
             isHellDiary
               ? 'border-fuchsia-500/60 shadow-[0_0_25px_rgba(168,85,247,0.35),0_0_18px_rgba(239,68,68,0.35)]'
               : isDiary
@@ -168,50 +168,46 @@ export default function PrivateArtifactPage() {
                 recordId={artifact.id}
                 width={800}
                 height={isDiary ? 1066 : 800}
-                className="absolute inset-0 z-0"
+                uncropped={true}
+                className="z-0"
                 noFallback={true}
               />
             ) : (
               /* No stored image — show static placeholder, never regenerate */
-              <div className="absolute inset-0 z-0 flex items-center justify-center bg-black/60">
+              <div className="w-full aspect-square flex items-center justify-center bg-black/60">
                 <span className={`text-5xl select-none ${
                   isHellDiary ? 'text-fuchsia-500/25' : isDiary ? 'text-purple-500/20' : isHell ? 'text-red-500/20' : isAuto ? 'text-orange-500/20' : 'text-gold/20'
                 }`}>✦</span>
               </div>
             )}
             <div className="scanline"></div>
-
-            {/* Seed of Truth Overlay (non-Diary artifacts) */}
-            {artifact.seedoftruth && !isDiary && (
-              <div className={`relative z-10 w-full bg-black/60 backdrop-blur-sm p-4 border-t ${
-                isHell ? 'border-red-500/30' : isAuto ? 'border-orange-500/30' : 'border-gold/20'
-              }`}>
-                <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
-                  isHell
-                    ? 'text-red-300'
-                    : isAuto
-                    ? 'text-orange-200'
-                    : 'text-gold-glow'
-                }`}>
-                  &ldquo;{artifact.seedoftruth}&rdquo;
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Seed of Truth Banner below Tarot Card (Diary artifacts) */}
-          {artifact.seedoftruth && isDiary && (
-            <div className={`mt-4 w-full rounded p-4 border relative z-10 ${
+          {/* Seed of Truth Separate Banner Below Image (keeps full artwork uncropped) */}
+          {artifact.seedoftruth && (
+            <div className={`mt-4 w-full rounded-lg px-5 py-4 border backdrop-blur-sm relative z-10 ${
               isHellDiary
-                ? 'bg-gradient-to-r from-purple-950/45 via-fuchsia-950/35 to-red-950/45 border-fuchsia-500/40'
-                : 'bg-purple-950/30 border-purple-500/30'
+                ? 'bg-gradient-to-r from-purple-950/50 via-fuchsia-950/40 to-red-950/50 border-fuchsia-500/45 shadow-[0_0_20px_rgba(217,70,239,0.2)]'
+                : isDiary
+                ? 'bg-purple-950/35 border-purple-500/35 shadow-[0_0_18px_rgba(168,85,247,0.18)]'
+                : isHell
+                ? 'bg-red-950/40 border-red-500/45 shadow-[0_0_20px_rgba(239,68,68,0.22)]'
+                : isAuto
+                ? 'bg-orange-950/35 border-orange-500/40 shadow-[0_0_18px_rgba(249,115,22,0.18)]'
+                : 'bg-black/60 border-gold/30 shadow-[0_0_18px_rgba(251,199,26,0.14)]'
             }`}>
               <p className={`text-center text-sm md:text-base italic drop-shadow-md ${
                 isHellDiary
                   ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-200 via-fuchsia-200 to-red-200 font-semibold'
-                  : 'text-purple-200'
+                  : isDiary
+                  ? 'text-purple-200'
+                  : isHell
+                  ? 'text-red-200'
+                  : isAuto
+                  ? 'text-orange-200'
+                  : 'text-gold-glow'
               }`}>
-                {isHellDiary ? '🧠🩸 ' : '🧠 '}&ldquo;{artifact.seedoftruth}&rdquo;
+                {isHellDiary ? '🧠🩸 ' : isDiary ? '🧠 ' : isHell ? '🩸 ' : isAuto ? '🔥 ' : '✦ '}&ldquo;{artifact.seedoftruth}&rdquo;
               </p>
             </div>
           )}

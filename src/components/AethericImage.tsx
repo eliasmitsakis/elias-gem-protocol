@@ -21,6 +21,7 @@ export const AethericImage = ({
   height,
   className = "",
   objectFit = 'cover',
+  uncropped = false,
   noFallback = false,
   silentError = false,
   onImageLoaded,
@@ -32,6 +33,7 @@ export const AethericImage = ({
   height: number;
   className?: string;
   objectFit?: 'cover' | 'contain';
+  uncropped?: boolean;
   noFallback?: boolean;
   silentError?: boolean;
   onImageLoaded?: (url: string) => void;
@@ -186,7 +188,12 @@ export const AethericImage = ({
   const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
 
   return (
-    <div ref={containerRef} className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
+    <div
+      ref={containerRef}
+      className={`relative w-full ${
+        uncropped ? (loaded ? 'h-auto' : 'min-h-[260px]') : 'h-full'
+      } bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}
+    >
       {!loaded && !hasError && currentSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
           <p className="text-nebula text-xs animate-pulse opacity-90 font-mono italic mb-2">
@@ -217,7 +224,11 @@ export const AethericImage = ({
           src={currentSrc}
           alt="Aetheric Vision"
           loading="lazy"
-          className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
+          className={`${
+            uncropped
+              ? `w-full h-auto block transition-opacity duration-700 relative z-10 ${loaded ? 'opacity-95 group-hover:opacity-100' : 'opacity-0'}`
+              : `w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`
+          }`}
           onLoad={() => {
             setLoaded(true);
             if (onImageLoaded && currentSrc) onImageLoaded(currentSrc);
