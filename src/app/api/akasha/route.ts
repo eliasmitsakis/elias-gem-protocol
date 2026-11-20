@@ -39,19 +39,30 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'Invalid or expired session' }, { status: 401 });
       }
 
-      // Fetch only this user's records
+      const url = new URL(req.url);
+      const rawLimit = Number.parseInt(url.searchParams.get('limit') || '6', 10);
+      const rawOffset = Number.parseInt(url.searchParams.get('offset') || '0', 10);
+      const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 50) : 6;
+      const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
+
+      // Fetch limit + 1 rows so we know cleanly whether older records exist
       const { data, error } = await userSupabase
         .from('akashic_records')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit);
 
       if (error) {
         console.error("Supabase GET Error", error);
         throw error;
       }
 
-      const transformedData = (data || []).map((row: any) => {
+      const rows = data || [];
+      const hasMore = rows.length > limit;
+      const pageRows = hasMore ? rows.slice(0, limit) : rows;
+
+      const transformedData = pageRows.map((row: any) => {
         return {
           id: row.id,
           timestamp: row.created_at,
@@ -68,7 +79,10 @@ export async function GET(req: Request) {
         };
       });
 
-      return NextResponse.json(transformedData, { headers: { 'Cache-Control': 'private, no-store' } });
+      return NextResponse.json(
+        { records: transformedData, hasMore },
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      );
     }
 
     return NextResponse.json({ error: 'Records service unavailable' }, { status: 503 });

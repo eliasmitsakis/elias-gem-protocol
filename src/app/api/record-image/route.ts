@@ -59,9 +59,10 @@ export async function POST(req: Request) {
   const { data: blob, error: downloadError } = await admin.storage
     .from('akashic_visions').download(objectPath);
   if (downloadError || !blob) return NextResponse.json({ error: 'Image unavailable' }, { status: 404 });
+  const fallbackMime = objectPath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
   return new NextResponse(await blob.arrayBuffer(), {
     headers: {
-      'Content-Type': blob.type || 'image/jpeg',
+      'Content-Type': blob.type || fallbackMime,
       'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400',
       'X-Content-Type-Options': 'nosniff'
     }

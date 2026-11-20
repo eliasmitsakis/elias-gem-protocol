@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { compressToWebp } from '@/lib/imageCompression';
 
 export const maxDuration = 60;
 
@@ -351,15 +352,16 @@ async function generateImageAndUpload(styledPrompt: string, supabaseAdminClient:
       const imgRes = await fetch(falImageUrl);
       if (imgRes.ok) {
         const arrayBuffer = await imgRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        const rawBuffer = Buffer.from(arrayBuffer);
+        const { buffer, mimeType, ext } = await compressToWebp(rawBuffer);
         const crypto = require('crypto');
         const promptHash = crypto.createHash('md5').update(styledPrompt).digest('hex');
-        const fileName = `diary_${promptHash}.jpg`;
+        const fileName = `diary_${promptHash}.${ext}`;
 
         const { error: uploadError } = await supabaseAdminClient.storage
           .from('akashic_visions')
           .upload(fileName, buffer, {
-            contentType: 'image/jpeg',
+            contentType: mimeType,
             upsert: true
           });
 
@@ -369,7 +371,7 @@ async function generateImageAndUpload(styledPrompt: string, supabaseAdminClient:
         const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
         return {
           imageUrl: `${baseUrl}/storage/v1/object/public/akashic_visions/${fileName}`,
-          previewDataUrl: `data:image/jpeg;base64,${buffer.toString('base64')}`,
+          previewDataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
         };
       }
     }

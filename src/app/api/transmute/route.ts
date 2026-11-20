@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
+import { compressToWebp } from '@/lib/imageCompression';
 
 export const maxDuration = 60;
 
@@ -346,10 +347,11 @@ async function generateImageAndUpload(
       const imgRes = await fetch(falImageUrl);
       if (imgRes.ok) {
         const arrayBuffer = await imgRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer); // Convert to Node.js Buffer for reliable Supabase upload
+        const rawBuffer = Buffer.from(arrayBuffer); // Convert to Node.js Buffer for compression & reliable Supabase upload
+        const { buffer, mimeType, ext } = await compressToWebp(rawBuffer);
         const crypto = require('crypto');
         const promptHash = crypto.createHash('md5').update(prompt).digest('hex');
-        const fileName = `${promptHash}.jpg`;
+        const fileName = `${promptHash}.${ext}`;
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
         const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
@@ -357,13 +359,13 @@ async function generateImageAndUpload(
 
         // Immediately emit inline preview to client before waiting for Supabase Storage upload
         if (onPreviewReady) {
-          onPreviewReady(`data:image/jpeg;base64,${buffer.toString('base64')}`, expectedPublicUrl);
+          onPreviewReady(`data:${mimeType};base64,${buffer.toString('base64')}`, expectedPublicUrl);
         }
 
         const { error: uploadError } = await supabaseAdminClient.storage
           .from('akashic_visions')
           .upload(fileName, buffer, {
-            contentType: 'image/jpeg',
+            contentType: mimeType,
             upsert: true
           });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 
 // Module-level session cache & in-flight deduplication so newly generated images,
@@ -48,7 +48,29 @@ export const AethericImage = ({
   const [loaded, setLoaded] = useState(Boolean(initialCached || isDirectDataOrBlob));
   const [hasError, setHasError] = useState(false);
   const [useFallback, setUseFallback] = useState(false);
-  const imgRef = React.useRef<HTMLImageElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (isVisible) return;
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setIsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '40px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isVisible]);
 
   useEffect(() => {
     const cached = cacheKey ? (recordImageCache.get(cacheKey) ?? null) : null;
@@ -113,6 +135,7 @@ export const AethericImage = ({
       setLoaded(true);
       return;
     }
+    if (!isVisible) return;
 
     let cancelled = false;
     let requestPromise = inFlightRecordRequests.get(cacheKey);
@@ -149,7 +172,7 @@ export const AethericImage = ({
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, imageUrl, session?.access_token]);
+  }, [cacheKey, imageUrl, session?.access_token, isVisible]);
 
   const currentSrc = needsGeneration ? authenticatedImageUrl :
     (recordId && imageUrl ? privateImageUrl : (imageUrl || null));
@@ -163,7 +186,7 @@ export const AethericImage = ({
   const fitClass = objectFit === 'contain' ? 'object-contain' : 'object-cover';
 
   return (
-    <div className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
+    <div ref={containerRef} className={`relative w-full h-full bg-obsidian/60 flex items-center justify-center overflow-hidden group ${className}`}>
       {!loaded && !hasError && currentSrc && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-0">
           <p className="text-nebula text-xs animate-pulse opacity-90 font-mono italic mb-2">
@@ -193,6 +216,7 @@ export const AethericImage = ({
           ref={imgRef}
           src={currentSrc}
           alt="Aetheric Vision"
+          loading="lazy"
           className={`w-full h-full ${fitClass} transition-all duration-1000 relative z-10 ${loaded ? 'opacity-80 group-hover:opacity-100 group-hover:scale-105' : 'opacity-0'}`}
           onLoad={() => {
             setLoaded(true);

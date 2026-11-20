@@ -108,7 +108,7 @@ const DiaryModal = ({
         <div className="w-full md:w-1/2 relative aspect-square md:aspect-auto">
           {data.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.imageUrl} alt="Diary of a Madman" className="w-full h-full object-cover" />
+            <img src={data.imageUrl} alt="Diary of a Madman" loading="lazy" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-obsidian border-r border-gold/10">
               <p className="text-nebula text-xs font-mono animate-pulse">✦ Generating visual...</p>
@@ -226,7 +226,7 @@ const UserMenu = ({ user, credits, onSignOut }: { user: any; credits: number | n
       >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="Avatar" className="w-6 h-6 rounded-full border border-gold/40" />
+          <img src={avatarUrl} alt="Avatar" loading="lazy" className="w-6 h-6 rounded-full border border-gold/40" />
         ) : (
           <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-gold text-xs font-bold">
             {displayName[0].toUpperCase()}
@@ -338,9 +338,12 @@ export default function CyberZenPortal() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionOutput, setExecutionOutput] = useState<{stdout: string, stderr: string}>({ stdout: '', stderr: '' });
 
-  // Akashic Records States
+  // Akashic Records States (paginated: 6 most recent initially)
+  const AKASHA_PAGE_SIZE = 6;
   const [isAkashaOpen, setIsAkashaOpen] = useState(false);
   const [akashaRecords, setAkashaRecords] = useState<any[]>([]);
+  const [hasMoreAkasha, setHasMoreAkasha] = useState(false);
+  const [loadingMoreAkasha, setLoadingMoreAkasha] = useState(false);
 
   // Diary of a Madman States
   const [diaryLoading, setDiaryLoading] = useState(false);
@@ -702,27 +705,56 @@ export default function CyberZenPortal() {
     }
   };
 
-  const fetchAkashicRecords = async (scrollToTop = false) => {
+  const fetchAkashicRecords = async (scrollToTop = false, offset = 0, append = false, resetAll = false) => {
+    const accessToken = session?.access_token;
+    if (!accessToken) {
+      setAkashaRecords([]);
+      setHasMoreAkasha(false);
+      return;
+    }
+
     try {
-      const accessToken = session?.access_token;
-      const res = await fetch(`/api/akasha?_t=${Date.now()}`, {
+      if (append) setLoadingMoreAkasha(true);
+      const res = await fetch(`/api/akasha?limit=${AKASHA_PAGE_SIZE}&offset=${offset}&_t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
         }
       });
       if (res.ok) {
-        const data = await res.json();
+        const payload = await res.json();
+        const incoming: any[] = Array.isArray(payload) ? payload : (payload?.records || []);
+        const hasMore = Array.isArray(payload) ? false : Boolean(payload?.hasMore);
+
         setAkashaRecords((prev) => {
           const prevById = new Map(prev.map((r: any) => [String(r.id), r]));
-          return (data || []).map((row: any) => {
+          const hydrated = incoming.map((row: any) => {
             const existing = prevById.get(String(row.id));
             return {
               ...row,
               imageUrl: row.imageUrl || existing?.imageUrl || null,
             };
           });
+
+          if (append) {
+            const incomingIds = new Set(hydrated.map((r: any) => String(r.id)));
+            return [...prev.filter((r: any) => !incomingIds.has(String(r.id))), ...hydrated];
+          }
+
+          if (resetAll) {
+            return hydrated;
+          }
+
+          // Preserve already-loaded older records beyond the first page after a new transmutation
+          const topIds = new Set(hydrated.map((r: any) => String(r.id)));
+          const olderPreserved = prev.filter((r: any) => !topIds.has(String(r.id)));
+          return [...hydrated, ...olderPreserved];
         });
+
+        if (append || resetAll) {
+          setHasMoreAkasha(hasMore);
+        }
+
         if (scrollToTop && scrollContainerRef.current) {
           setTimeout(() => {
             scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -731,6 +763,8 @@ export default function CyberZenPortal() {
       }
     } catch (e) {
       console.error("Failed to fetch Akashic Records");
+    } finally {
+      if (append) setLoadingMoreAkasha(false);
     }
   };
 
@@ -764,7 +798,7 @@ export default function CyberZenPortal() {
   // Re-fetch records whenever the session changes (login / logout)
   useEffect(() => {
     if (!authLoading) {
-      fetchAkashicRecords();
+      void fetchAkashicRecords(false, 0, false, true);
     }
   }, [session, authLoading]);
 
@@ -1462,6 +1496,17 @@ sys.stderr = io.StringIO()
                     </div>
                   );
                 })
+              )}
+
+              {hasMoreAkasha && (
+                <button
+                  type="button"
+                  onClick={() => void fetchAkashicRecords(false, akashaRecords.length, true)}
+                  disabled={loadingMoreAkasha}
+                  className="w-full py-2.5 px-4 rounded-lg border border-gold/30 bg-black/60 text-gold/80 text-xs font-mono uppercase tracking-widest hover:border-gold hover:text-gold hover:bg-gold/10 hover:shadow-[0_0_15px_rgba(251,199,26,0.2)] transition-all disabled:opacity-50"
+                >
+                  {loadingMoreAkasha ? 'Loading older records…' : 'Load More ▼'}
+                </button>
               )}
            </div>
         </div>
